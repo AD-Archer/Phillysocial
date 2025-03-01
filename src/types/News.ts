@@ -3,7 +3,7 @@ export interface NewsItem {
   title: string;
   link: string;
   description: string;
-  pubDate: Date;
+  pubDate: string;
   source: string;
   sourceIcon?: string;
   category?: string;
@@ -12,79 +12,47 @@ export interface NewsItem {
 }
 
 export interface NewsSource {
-  id: string;
   name: string;
   url: string;
   icon?: string;
-  category?: string;
+  category: string;
 }
 
 export const NEWS_SOURCES: NewsSource[] = [
   {
-    id: 'phillyvoice',
-    name: 'PhillyVoice',
-    url: 'https://www.phillyvoice.com/feed/',
-    icon: 'https://phillyvoice.com/static/global/images/feed-logo.png',
-    category: 'general'
-  },
-  {
-    id: 'nbc',
     name: 'NBC Philadelphia',
-    url: 'https://www.nbcphiladelphia.com/?rss=y',
+    url: 'https://feeds.nbcphiladelphia.com/news/local',
+    icon: 'https://media.nbcphiladelphia.com/2019/09/NBC10_WCAU_Philadelphia.png',
     category: 'general'
   },
   {
-    id: 'bizjournals',
-    name: 'Philadelphia Business Journal',
-    url: 'http://feeds.bizjournals.com/bizj_philadelphia',
-    category: 'business'
-  },
-  {
-    id: '6abc',
-    name: '6ABC Philadelphia',
-    url: 'https://6abc.com/feed/',
+    name: 'CBS Philadelphia',
+    url: 'https://www.cbsnews.com/philadelphia/feed/rss/local/',
+    icon: 'https://philadelphia.cbslocal.com/wp-content/uploads/sites/15116066/2022/01/CBS3_LOGO.png',
     category: 'general'
   },
   {
-    id: 'chalkbeat',
-    name: 'Chalkbeat Philadelphia',
-    url: 'https://www.chalkbeat.org/arc/outboundfeeds/rss/',
-    category: 'education'
+    name: 'Philadelphia Inquirer',
+    url: 'https://www.inquirer.com/rss',
+    icon: 'https://www.inquirer.com/favicon-32x32.png',
+    category: 'general'
   },
   {
-    id: 'phillymag',
-    name: 'Philadelphia Magazine',
-    url: 'https://www.phillymag.com/news/feed/',
+    name: 'KYW Newsradio',
+    url: 'https://www.audacy.com/kywnewsradio/rss/news',
+    icon: 'https://www.audacy.com/kywnewsradio/favicon.ico',
+    category: 'general'
+  },
+  {
+    name: 'Billy Penn',
+    url: 'https://billypenn.com/feed/',
+    icon: 'https://billypenn.com/wp-content/uploads/2018/06/cropped-bp-favicon-1-192x192.png',
     category: 'lifestyle'
   },
   {
-    id: 'phl17',
-    name: 'PHL17',
-    url: 'https://phl17.com/feed/',
-    category: 'general'
-  },
-  {
-    id: 'fox29',
-    name: 'FOX 29',
-    url: 'https://www.fox29.com/latest.xml',
-    category: 'general'
-  },
-  {
-    id: 'whyy',
-    name: 'WHYY',
-    url: 'https://whyy.org/feed/',
-    category: 'general'
-  },
-  {
-    id: 'phlsports',
-    name: 'PHL Sports Nation',
-    url: 'https://phlsportsnation.com/feed/',
-    category: 'sports'
-  },
-  {
-    id: 'cbsphilly',
-    name: 'CBS Philadelphia',
-    url: 'https://philadelphia.cbslocal.com/feed/',
+    name: 'Philadelphia Tribune',
+    url: 'https://www.phillytrib.com/search/?f=rss',
+    icon: 'https://www.phillytrib.com/favicon.ico',
     category: 'general'
   }
 ]; 

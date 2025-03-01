@@ -2,11 +2,12 @@
 import { useState, useRef } from 'react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebaseConfig';
+import { db, storage, userCanPostInChannel } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
 import { FaTimes } from 'react-icons/fa';
 import { Post } from '@/types/Post';
 import Image from 'next/image';
+import { FieldValue } from 'firebase/firestore';
 
 interface CreatePostFormProps {
   channelId: string;
@@ -16,6 +17,23 @@ interface CreatePostFormProps {
 interface FirebaseError {
   code: string;
   message: string;
+}
+
+interface PostData {
+  content: string;
+  channelId: string;
+  authorId: string;
+  authorName: string;
+  createdAt: FieldValue;
+  likes: string[];
+  comments: Array<{
+    id: string;
+    text: string;
+    userId: string;
+    createdAt: Date;
+  }>;
+  authorPhotoURL?: string;
+  imageUrl?: string;
 }
 
 const CreatePostForm: React.FC<CreatePostFormProps> = ({ channelId, onPostCreated }) => {
@@ -66,30 +84,37 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ channelId, onPostCreate
       setError('You must be logged in to create a post');
       return;
     }
+
+    // Check if user has permission to post in this channel
+    const hasPermission = await userCanPostInChannel(user.uid, channelId);
+    if (!hasPermission) {
+      setError('You do not have permission to post in this channel');
+      return;
+    }
     
     setIsSubmitting(true);
     setError(null);
     
     try {
-      let imageUrl = undefined;
-      
-      if (image) {
-        const storageRef = ref(storage, `posts/${channelId}/${Date.now()}_${image.name}`);
-        await uploadBytes(storageRef, image);
-        imageUrl = await getDownloadURL(storageRef);
-      }
-      
-      const postData = {
+      const postData: PostData = {
         content,
         channelId,
         authorId: user.uid,
         authorName: user.displayName || 'Anonymous',
-        authorPhotoURL: user.photoURL || undefined,
         createdAt: serverTimestamp(),
         likes: [],
-        comments: [],
-        imageUrl
+        comments: []
       };
+
+      if (user.photoURL) {
+        postData.authorPhotoURL = user.photoURL;
+      }
+      
+      if (image) {
+        const storageRef = ref(storage, `posts/${channelId}/${Date.now()}_${image.name}`);
+        await uploadBytes(storageRef, image);
+        postData.imageUrl = await getDownloadURL(storageRef);
+      }
       
       const docRef = await addDoc(collection(db, 'posts'), postData);
       

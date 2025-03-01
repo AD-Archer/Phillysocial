@@ -15,7 +15,8 @@ const nextConfig = {
     domains: [
       'lh3.googleusercontent.com',  // For Google authentication profile pictures
       'firebasestorage.googleapis.com',  // For Firebase Storage
-      '2ad5tl9u0f.ufs.sh'  // Added this domain for founder images
+      '2ad5tl9u0f.ufs.sh',  // Added this domain for founder images
+      'media.nbcphiladelphia.com'
     ],
   },
 };
