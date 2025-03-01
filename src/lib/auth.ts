@@ -4,7 +4,8 @@ import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
-  AuthError
+  AuthError,
+  signOut
 } from 'firebase/auth';
 
 const googleProvider = new GoogleAuthProvider();
@@ -47,5 +48,17 @@ export const signInWithGoogle = async () => {
       throw error.message;
     }
     throw 'Failed to sign in with Google';
+  }
+};
+
+export const signOutUser = async () => {
+  try {
+    await signOut(auth);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error signing out:", error);
+      throw error.message;
+    }
+    throw 'Failed to sign out';
   }
 }; 

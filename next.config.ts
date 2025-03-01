@@ -11,6 +11,12 @@ const nextConfig: NextConfig = {
     };
     return config;
   },
+  images: {
+    domains: [
+      'lh3.googleusercontent.com',  // For Google authentication profile pictures
+      'firebasestorage.googleapis.com'  // For Firebase Storage (if you plan to use it)
+    ],
+  },
 };
 
 export default nextConfig;
