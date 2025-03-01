@@ -4,24 +4,24 @@ import Image from "next/image"
 export default function About() {
   const founders = [
     {
+      name: "Mohomed Souare",
+      role: "Co-Founder",
+      image: "/img/moooo.png",
+    },
+    {
       name: "Antonio Archer",
       role: "Co-Founder",
-      image: "/placeholder.svg?height=300&width=300",
+      image: "/img/archer.jpg", // Update with actual image URL
     },
     {
       name: "Sianni Strickland",
       role: "Co-Founder",
-      image: "/placeholder.svg?height=300&width=300",
+      image: "/img/sianni.jpg", // Update with actual image URL
     },
     {
       name: "Bryan Gunawan",
       role: "Co-Founder",
-      image: "/placeholder.svg?height=300&width=300",
-    },
-    {
-      name: "Mohomed Souare",
-      role: "Co-Founder",
-      image: "/placeholder.svg?height=300&width=300",
+      image: "/img/bryan.jpg", // Update with actual image URL
     },
   ]
 
@@ -72,4 +72,3 @@ export default function About() {
     </div>
   )
 }
-

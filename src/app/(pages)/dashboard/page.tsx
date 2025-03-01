@@ -1,15 +1,17 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@lib/context/AuthContext';
-import Image from 'next/image';
-import { auth } from '@lib/firebaseConfig';
+import { useAuth } from '@/lib/context/AuthContext';
+import { auth } from '@/lib/firebaseConfig';
 import { signOut } from 'firebase/auth';
+import Sidebar from '@/components/Sidebar';
+import Header from '@/layouts/Header';
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -40,58 +42,31 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold text-indigo-600">Philly Social</h1>
-            </div>
-            <div className="flex items-center">
-              <div className="relative">
-                <button
-                  onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className="flex items-center space-x-2 text-gray-700 hover:text-indigo-600 focus:outline-none"
-                >
-                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                    {user.photoURL ? (
-                      <Image
-                        src={user.photoURL}
-                        alt="Profile"
-                        width={32}
-                        height={32}
-                        className="rounded-full"
-                      />
-                    ) : (
-                      <span className="text-sm font-medium">
-                        {user.email?.[0].toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  <span className="hidden md:block">{user.email}</span>
-                </button>
-                
-                {isMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
-                    <div className="py-1">
-                      <button
-                        onClick={handleSignOut}
-                        className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        Sign Out
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+      <Header 
+        onMenuClick={() => setIsSidebarOpen(true)}
+        onProfileClick={() => setIsProfileOpen(!isProfileOpen)}
+        isProfileOpen={isProfileOpen}
+      />
+      
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+
+      {/* Profile Dropdown */}
+      {isProfileOpen && (
+        <div className="absolute right-4 top-16 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+          <div className="py-1">
+            <button
+              onClick={handleSignOut}
+              className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              Sign Out
+            </button>
           </div>
         </div>
-      </nav>
+      )}
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
+      <div className="pt-16 lg:pl-64">
+        <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Recent Activity Card */}
             <div className="bg-white overflow-hidden shadow rounded-lg">
@@ -128,8 +103,8 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
