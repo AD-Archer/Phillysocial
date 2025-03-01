@@ -1,0 +1,62 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Common function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Function to check if user is the owner of a document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Allow users to read their own profile
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+    
+    // Channel rules
+    match /channels/{channelId} {
+      // Anyone can read channels
+      allow read: if isAuthenticated();
+      // Only authenticated users can create channels
+      allow create: if isAuthenticated();
+      // Only channel creator can update or delete
+      allow update, delete: if isAuthenticated() && 
+                             resource.data.createdBy == request.auth.uid;
+    }
+    
+    // Post rules
+    match /posts/{postId} {
+      // Anyone can read posts
+      allow read: if isAuthenticated();
+      // Authenticated users can create posts
+      allow create: if isAuthenticated() && 
+                    request.resource.data.userId == request.auth.uid;
+      // Only post creator can update or delete
+      allow update, delete: if isAuthenticated() && 
+                            resource.data.userId == request.auth.uid;
+    }
+    
+    // Comment rules
+    match /comments/{commentId} {
+      // Anyone can read comments
+      allow read: if isAuthenticated();
+      // Authenticated users can create comments
+      allow create: if isAuthenticated() && 
+                    request.resource.data.userId == request.auth.uid;
+      // Only comment creator can update or delete
+      allow update, delete: if isAuthenticated() && 
+                            resource.data.userId == request.auth.uid;
+    }
+    
+    // User subscriptions to channels
+    match /channelSubscriptions/{subscriptionId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && 
+                   request.resource.data.userId == request.auth.uid;
+    }
+  }
+} 

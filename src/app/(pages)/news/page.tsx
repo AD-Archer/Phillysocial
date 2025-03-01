@@ -4,17 +4,15 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/context/AuthContext';
 import { auth } from '@/lib/firebaseConfig';
 import { signOut } from 'firebase/auth';
-import Sidebar from '@/components/Sidebar';
+import NewsFeed from '@/components/NewsFeed';
 import Header from '@/layouts/Header';
-import ChannelList from '@/components/ChannelList';
-import PostList from '@/components/PostList';
+import Sidebar from '@/components/Sidebar';
 
-export default function Dashboard() {
+export default function NewsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -69,28 +67,14 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="pt-16 lg:pl-64">
         <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {/* Channels Sidebar - Only visible on larger screens */}
-            <div className="hidden md:block md:col-span-1">
-              <ChannelList 
-                onSelectChannel={setSelectedChannelId}
-                selectedChannelId={selectedChannelId}
-              />
-            </div>
-            
-            {/* Main Feed */}
-            <div className="md:col-span-3">
-              <PostList channelId={selectedChannelId} />
-            </div>
-            
-            {/* Mobile Channel Selection - Only visible on mobile */}
-            <div className="block md:hidden mt-6">
-              <ChannelList 
-                onSelectChannel={setSelectedChannelId}
-                selectedChannelId={selectedChannelId}
-              />
-            </div>
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">Philadelphia News</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Stay updated with the latest news from Philadelphia&apos;s top sources
+            </p>
           </div>
+
+          <NewsFeed limit={50} />
         </main>
       </div>
     </div>
