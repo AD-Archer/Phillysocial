@@ -1,7 +1,5 @@
 'use client';
 import { useState } from 'react';
-// Temporarily replace date-fns with a simple formatter
-// import { formatDistanceToNow } from 'date-fns';
 import { FaHeart, FaRegHeart, FaComment, FaEllipsisH } from 'react-icons/fa';
 import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';

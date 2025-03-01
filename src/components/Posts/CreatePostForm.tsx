@@ -5,7 +5,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage, userCanPostInChannel } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
 import { FaTimes } from 'react-icons/fa';
-import { Post } from '@/types/Post';
+import { Post, Comment } from '@/types/Post';
 import Image from 'next/image';
 import { FieldValue } from 'firebase/firestore';
 
@@ -26,12 +26,7 @@ interface PostData {
   authorName: string;
   createdAt: FieldValue;
   likes: string[];
-  comments: Array<{
-    id: string;
-    text: string;
-    userId: string;
-    createdAt: Date;
-  }>;
+  comments: Comment[];
   authorPhotoURL?: string;
   imageUrl?: string;
 }
@@ -85,7 +80,6 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ channelId, onPostCreate
       return;
     }
 
-    // Check if user has permission to post in this channel
     const hasPermission = await userCanPostInChannel(user.uid, channelId);
     if (!hasPermission) {
       setError('You do not have permission to post in this channel');
@@ -103,7 +97,7 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ channelId, onPostCreate
         authorName: user.displayName || 'Anonymous',
         createdAt: serverTimestamp(),
         likes: [],
-        comments: []
+        comments: [] as Comment[],
       };
 
       if (user.photoURL) {
@@ -120,8 +114,15 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ channelId, onPostCreate
       
       const newPost: Post = {
         id: docRef.id,
-        ...postData,
-        createdAt: new Date()
+        content: postData.content,
+        channelId: postData.channelId,
+        authorId: postData.authorId,
+        authorName: postData.authorName,
+        createdAt: new Date(),
+        likes: postData.likes,
+        comments: postData.comments,
+        ...(postData.authorPhotoURL && { authorPhotoURL: postData.authorPhotoURL }),
+        ...(postData.imageUrl && { imageUrl: postData.imageUrl })
       };
       
       onPostCreated(newPost);

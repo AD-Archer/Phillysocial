@@ -6,8 +6,8 @@ import { auth } from '@/lib/firebaseConfig';
 import { signOut } from 'firebase/auth';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/layouts/Header';
-import ChannelList from '@/components/ChannelList';
-import PostList from '@/components/PostList';
+import ChannelList from '@/components/Channels/ChannelList';
+import PostList from '@/components/Posts/PostList';
 
 export default function Dashboard() {
   const { user, loading } = useAuth();

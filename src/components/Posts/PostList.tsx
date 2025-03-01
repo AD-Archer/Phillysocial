@@ -38,6 +38,7 @@ const PostList: React.FC<PostListProps> = ({ channelId }) => {
             createdBy: data.createdBy || '',
             createdAt: data.createdAt?.toDate() || new Date(),
             members: data.members || [],
+            admins: data.admins || [],
             isPublic: data.isPublic !== undefined ? data.isPublic : true,
             imageUrl: data.imageUrl
           });
