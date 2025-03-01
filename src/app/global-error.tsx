@@ -2,10 +2,8 @@
 import { FaExclamationCircle } from 'react-icons/fa';
 
 export default function GlobalError({
-  error,
   reset,
 }: {
-  error: Error;
   reset: () => void;
 }) {
   return (
@@ -18,7 +16,7 @@ export default function GlobalError({
             </div>
             <h1 className="text-2xl font-bold text-[#004C54] mb-4">Critical Error</h1>
             <p className="text-gray-600 mb-8">
-              A critical error has occurred. We're working on fixing it.
+              A critical error has occurred. We&apos;re working on fixing it.
             </p>
             <button
               onClick={reset}

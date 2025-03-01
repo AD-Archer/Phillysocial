@@ -98,13 +98,15 @@ const PostList: React.FC<PostListProps> = ({ channelId }) => {
         });
         
         setPosts(fetchedPosts);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error fetching posts:', err);
         
-        if (err.code === 'permission-denied') {
+        if (err instanceof Error && 'code' in err && err.code === 'permission-denied') {
           setError('Permission denied. You may not have access to this channel.');
-        } else {
+        } else if (err instanceof Error) {
           setError(`Failed to load posts: ${err.message || 'Unknown error'}`);
+        } else {
+          setError('An unknown error occurred.');
         }
       } finally {
         setIsLoading(false);

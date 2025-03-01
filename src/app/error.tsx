@@ -22,9 +22,9 @@ export default function Error({ error, reset }: ErrorProps) {
           <div className="flex justify-center mb-6">
             <FaExclamationCircle className="text-red-600 h-16 w-16" />
           </div>
-          <h1 className="text-3xl font-bold text-[#004C54] mb-4">Something Went Wrong</h1>
+          <h1 className="text-3xl font-bold text-[#004C54] mb-4">Something&apos;s gone wrong!</h1>
           <p className="text-gray-600 mb-8">
-            We're sorry, but there was an error processing your request.
+            We&apos;re sorry, but there was an error processing your request.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button

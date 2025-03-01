@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { FaPlus, FaHashtag, FaExclamationTriangle } from 'react-icons/fa';
 import { Channel } from '@/types/Channel';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
 import CreateChannelModal from './CreateChannelModal';

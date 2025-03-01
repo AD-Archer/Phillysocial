@@ -6,22 +6,22 @@ export default function About() {
     {
       name: "Mohomed Souare",
       role: "Co-Founder",
-      image: "/img/moooo.png",
+      image: "https://2ad5tl9u0f.ufs.sh/f/mVlrptEB35zZWRSjr6oGkhZc0HqtLiKVx6UwNY9rFfzj8DgC",
     },
     {
       name: "Antonio Archer",
       role: "Co-Founder",
-      image: "/img/archer.jpg", // Update with actual image URL
+      image: "https://2ad5tl9u0f.ufs.sh/f/mVlrptEB35zZgXkiO09rgqXvswhp7V9inAWSNjdFcTPU04Co", 
     },
     {
       name: "Sianni Strickland",
       role: "Co-Founder",
-      image: "/img/sianni.jpg", // Update with actual image URL
+      image: "https://2ad5tl9u0f.ufs.sh/f/mVlrptEB35zZRu9boXVrI1y2gHJMVozdtwNDuO6Ev3qPksnc", // Update with actual image URL
     },
     {
       name: "Bryan Gunawan",
       role: "Co-Founder",
-      image: "/img/bryan.jpg", // Update with actual image URL
+      image: "/img/bryan.jpg", 
     },
   ]
 
@@ -61,7 +61,20 @@ export default function About() {
               className="bg-white/10 backdrop-blur-sm rounded-lg p-6 flex flex-col items-center text-center"
             >
               <div className="relative w-48 h-48 mb-4 rounded-full overflow-hidden border-4 border-[#A5ACAF]">
-                <Image src={founder.image || "/placeholder.svg"} alt={founder.name} fill className="object-cover" />
+                {founder.image && founder.image.startsWith('http') ? (
+                  <img 
+                    src={founder.image} 
+                    alt={founder.name} 
+                    className="absolute inset-0 w-full h-full object-cover" 
+                  />
+                ) : (
+                  <Image 
+                    src={founder.image || "/placeholder.svg"} 
+                    alt={founder.name} 
+                    fill 
+                    className="object-cover" 
+                  />
+                )}
               </div>
               <h3 className="text-xl font-bold text-white">{founder.name}</h3>
               <p className="text-[#A5ACAF]">{founder.role}</p>

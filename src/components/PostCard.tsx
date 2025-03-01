@@ -7,6 +7,7 @@ import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Post, Comment } from '@/types/Post';
+import Image from 'next/image';
 
 // Simple date formatter until date-fns is installed
 const formatTimeAgo = (date: Date): string => {
@@ -99,13 +100,13 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
     <div className="bg-white rounded-lg shadow-md p-4">
       <div className="flex items-start space-x-3">
         <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
-          {post.authorPhotoURL ? (
-            <img src={post.authorPhotoURL} alt={post.authorName} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-500 font-medium">
-              {post.authorName[0].toUpperCase()}
-            </div>
-          )}
+          <Image
+            src={post.authorPhotoURL || '/default-avatar.png'}
+            alt={`${post.authorName}'s profile`}
+            width={40}
+            height={40}
+            className="w-full h-full object-cover"
+          />
         </div>
         
         <div className="flex-1 min-w-0">
@@ -126,10 +127,12 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
           
           {post.imageUrl && (
             <div className="mt-3">
-              <img 
-                src={post.imageUrl} 
-                alt="Post attachment" 
-                className="rounded-lg max-h-96 object-contain" 
+              <Image
+                src={post.imageUrl}
+                alt="Post attachment"
+                width={600}
+                height={400}
+                className="w-full max-h-96 object-cover rounded-lg"
               />
             </div>
           )}
@@ -160,7 +163,13 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
                     <div key={comment.id} className="flex space-x-2">
                       <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
                         {comment.authorPhotoURL ? (
-                          <img src={comment.authorPhotoURL} alt={comment.authorName} className="w-full h-full object-cover" />
+                          <Image
+                            src={comment.authorPhotoURL}
+                            alt={comment.authorName}
+                            width={32}
+                            height={32}
+                            className="w-full h-full object-cover"
+                          />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs font-medium">
                             {comment.authorName[0].toUpperCase()}

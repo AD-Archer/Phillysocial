@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { NewsItem } from '@/types/News';
 import { FaNewspaper, FaExternalLinkAlt, FaFilter } from 'react-icons/fa';
+import Image from 'next/image';
 
 interface NewsFeedProps {
   category?: string;
@@ -145,15 +146,19 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ category, limit = 50 }) => {
             >
               {item.imageUrl && (
                 <div className="relative h-48 overflow-hidden">
-                  <img
+                  <Image
                     src={item.imageUrl}
                     alt={item.title}
-                    className="w-full h-full object-cover"
+                    width={300}
+                    height={200}
+                    className="w-full h-48 object-cover rounded-t-lg"
                   />
                   {item.sourceIcon && (
-                    <img
+                    <Image
                       src={item.sourceIcon}
                       alt={item.source}
+                      width={24}
+                      height={24}
                       className="absolute top-2 left-2 h-6 w-6 rounded-full bg-white p-1"
                     />
                   )}

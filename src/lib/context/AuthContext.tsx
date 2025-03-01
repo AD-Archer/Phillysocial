@@ -2,11 +2,14 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
-import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+}
+
+interface AuthProviderProps {
+  children: React.ReactNode;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -14,10 +17,9 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
 });
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {

@@ -4,13 +4,18 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
-import { FaImage, FaTimes } from 'react-icons/fa';
+import { FaTimes } from 'react-icons/fa';
 import { Post } from '@/types/Post';
-import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 interface CreatePostFormProps {
   channelId: string;
   onPostCreated: (post: Post) => void;
+}
+
+interface FirebaseError {
+  code: string;
+  message: string;
 }
 
 const CreatePostForm: React.FC<CreatePostFormProps> = ({ channelId, onPostCreated }) => {
@@ -20,7 +25,6 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ channelId, onPostCreate
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
-  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,47 +73,40 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ channelId, onPostCreate
     try {
       let imageUrl = undefined;
       
-      // Upload image if exists
       if (image) {
         const storageRef = ref(storage, `posts/${channelId}/${Date.now()}_${image.name}`);
         await uploadBytes(storageRef, image);
         imageUrl = await getDownloadURL(storageRef);
       }
       
-      // Create the post document
       const postData = {
         content,
         channelId,
-        userId: user.uid,
-        username: user.displayName || 'Anonymous',
-        userPhotoURL: user.photoURL || null,
+        authorId: user.uid,
+        authorName: user.displayName || 'Anonymous',
+        authorPhotoURL: user.photoURL || undefined,
         createdAt: serverTimestamp(),
-        likes: 0,
-        comments: 0,
+        likes: [],
+        comments: [],
         imageUrl
       };
       
-      // Add the document to Firestore
       const docRef = await addDoc(collection(db, 'posts'), postData);
       
-      // Create the post object with the new ID
       const newPost: Post = {
         id: docRef.id,
-        ...postData
+        ...postData,
+        createdAt: new Date()
       };
       
       onPostCreated(newPost);
       setContent('');
       removeImage();
-    } catch (err: any) {
-      console.error('Error creating post:', err);
-      
-      // Handle Firebase permission errors specifically
-      if (err.code === 'permission-denied') {
-        setError('You do not have permission to post in this channel. Please contact an administrator.');
-      } else {
-        setError(`Failed to create post: ${err.message || 'Unknown error'}`);
-      }
+    } catch (error: unknown) {
+      const firebaseError = error as FirebaseError;
+      console.error('Error creating post:', firebaseError);
+      setError(firebaseError.message || 'An error occurred while creating the post');
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -128,9 +125,11 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ channelId, onPostCreate
         
         {imagePreview && (
           <div className="relative mt-2 inline-block">
-            <img 
+            <Image 
               src={imagePreview} 
               alt="Preview" 
+              width={160}
+              height={160}
               className="max-h-40 rounded-md" 
             />
             <button
@@ -143,13 +142,29 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ channelId, onPostCreate
           </div>
         )}
         
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleImageChange}
+          accept="image/*"
+          className="hidden"
+        />
+        
         {error && (
           <div className="mt-2 text-red-600 text-sm">
             {error}
           </div>
         )}
         
-        <div className="mt-3 flex justify-end">
+        <div className="mt-3 flex justify-between items-center">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="text-gray-500 hover:text-[#004C54]"
+          >
+            Add Image
+          </button>
+          
           <button
             type="submit"
             className={`px-4 py-2 rounded-lg text-white ${

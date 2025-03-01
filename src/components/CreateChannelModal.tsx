@@ -61,14 +61,14 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ onClose, onChan
       };
       
       onChannelCreated(newChannel);
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
       console.error('Error creating channel:', error);
       
       // Provide a more helpful error message
-      if (error.code === 'permission-denied') {
-        setError('Permission denied. Please check your Firebase rules.');
+      if (error instanceof Error) {
+        setError(error.message);
       } else {
-        setError(`Failed to create channel: ${error.message || 'Unknown error'}`);
+        setError('An error occurred');
       }
     } finally {
       setIsLoading(false);
