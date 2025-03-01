@@ -1,10 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FaTimes, FaUserShield, FaUserMinus, FaUserPlus, FaSearch } from 'react-icons/fa';
+import { FaTimes, FaUserShield, FaUserMinus, FaSearch } from 'react-icons/fa';
 import Image from 'next/image';
 import { Channel } from '@/types/Channel';
 import { useAuth } from '@/lib/context/AuthContext';
-import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 
 interface User {
@@ -32,9 +32,6 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
   const [activeTab, setActiveTab] = useState<'members' | 'admins'>('members');
   const { user } = useAuth();
 
-  // Check if current user is the creator (cannot be removed as admin)
-  const isCreator = user?.uid === channel.createdBy;
-  
   useEffect(() => {
     const fetchMembers = async () => {
       setIsLoading(true);
@@ -348,11 +345,6 @@ const MemberItem: React.FC<MemberItemProps> = ({
         <div>
           <div className="font-medium text-gray-800">
             {member.displayName}
-            {isCreator && (
-              <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                Creator
-              </span>
-            )}
           </div>
           <div className="text-xs text-gray-500">{member.email}</div>
         </div>

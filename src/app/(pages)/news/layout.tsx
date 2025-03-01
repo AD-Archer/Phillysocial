@@ -1,20 +1,21 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/context/AuthContext';
 import { auth } from '@/lib/firebaseConfig';
 import { signOut } from 'firebase/auth';
-import Sidebar from '@/layouts/Sidebar';
 import Header from '@/layouts/Header';
-import ChannelList from '@/components/Channels/ChannelList';
-import PostList from '@/components/Posts/PostList';
+import Sidebar from '@/layouts/Sidebar';
 
-export default function Dashboard() {
+export default function NewsLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -68,31 +69,10 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <div className="pt-16">
-        <main className="max-w-7xl mx-auto p-2 sm:p-4 lg:p-6">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-            {/* Channels Sidebar - Only visible on larger screens */}
-            <div className="hidden md:block md:col-span-3 pl-0">
-              <ChannelList 
-                onSelectChannel={setSelectedChannelId}
-                selectedChannelId={selectedChannelId}
-              />
-            </div>
-            
-            {/* Main Feed */}
-            <div className="md:col-span-9">
-              <PostList channelId={selectedChannelId} />
-            </div>
-            
-            {/* Mobile Channel Selection - Only visible on mobile */}
-            <div className="block md:hidden mt-6">
-              <ChannelList 
-                onSelectChannel={setSelectedChannelId}
-                selectedChannelId={selectedChannelId}
-              />
-            </div>
-          </div>
+        <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+          {children}
         </main>
       </div>
     </div>
   );
-}
+} 

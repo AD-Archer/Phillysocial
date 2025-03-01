@@ -6,7 +6,7 @@ import { Channel } from '@/types/Channel';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
-import { useToast } from '../Toast';
+import { useToast } from '../../layouts/Toast';
 import CreateChannelModal from '../../models/CreateChannelModal';
 import JoinChannelModal from '../../models/JoinChannelModal';
 
@@ -131,8 +131,8 @@ const ChannelList: React.FC<ChannelListProps> = ({ onSelectChannel, selectedChan
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-      <div className="flex justify-between items-center mb-4">
+    <div className="bg-white rounded-lg shadow-md p-2 mb-6">
+      <div className="flex justify-between items-center mb-4 pl-0">
         <h2 className="text-lg font-semibold text-[#004C54]">Channels</h2>
         <div className="flex space-x-2">
           <button 
@@ -207,7 +207,7 @@ const ChannelList: React.FC<ChannelListProps> = ({ onSelectChannel, selectedChan
           </button>
         </div>
       ) : (
-        <ul className="space-y-2 max-h-64 overflow-y-auto">
+        <ul className="space-y-2 max-h-64 overflow-y-auto pl-0">
           {channels.length === 0 ? (
             <p className="text-gray-500 text-sm text-center py-2">No channels available. Create your first channel!</p>
           ) : (
@@ -218,16 +218,16 @@ const ChannelList: React.FC<ChannelListProps> = ({ onSelectChannel, selectedChan
                     onSelectChannel(channel.id);
                     setSelectedChannel(channel);
                   }}
-                  className={`w-full flex items-center p-2 rounded-md transition-colors ${
+                  className={`w-full flex items-center p-2 pl-0 rounded-md transition-colors ${
                     selectedChannelId === channel.id 
                       ? 'bg-[#e6f0f0] text-[#004C54]' 
                       : 'hover:bg-gray-100 text-gray-700'
                   }`}
                 >
                   {channel.isPublic ? (
-                    <FaHashtag className="mr-2 flex-shrink-0" />
+                    <FaHashtag className="ml-0 mr-2 flex-shrink-0" />
                   ) : (
-                    <FaLock className="mr-2 flex-shrink-0 text-gray-500" />
+                    <FaLock className="ml-0 mr-2 flex-shrink-0 text-gray-500" />
                   )}
                   
                   {/* Display channel image if available */}
@@ -243,7 +243,7 @@ const ChannelList: React.FC<ChannelListProps> = ({ onSelectChannel, selectedChan
                     </div>
                   )}
                   
-                  <span className="truncate">{channel.name}</span>
+                  <span className="truncate text-left">{channel.name}</span>
                   
                   {/* Show admin badge if user is an admin */}
                   {isUserAdmin(channel) && (

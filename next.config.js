@@ -18,6 +18,16 @@ const nextConfig = {
       '2ad5tl9u0f.ufs.sh',  // Added this domain for founder images
       'media.nbcphiladelphia.com'
     ],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
+      {
+        protocol: 'http',
+        hostname: '**',
+      }
+    ],
   },
 };
 

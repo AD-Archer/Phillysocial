@@ -1,34 +1,42 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/context/AuthContext';
-import { auth } from '@/lib/firebaseConfig';
-import { signOut } from 'firebase/auth';
+import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import NewsFeed from '@/components/NewsFeed';
-import Header from '@/layouts/Header';
-import Sidebar from '@/components/Sidebar';
-import { FaNewspaper, FaFilter } from 'react-icons/fa';
+import { FaNewspaper, FaFilter, FaTags } from 'react-icons/fa';
+import Link from 'next/link';
 
 export default function NewsPage() {
-  const { user, loading } = useAuth();
   const router = useRouter();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(
+    searchParams.get('category') || null
+  );
+  const [itemsPerPage, setItemsPerPage] = useState(
+    parseInt(searchParams.get('itemsPerPage') || '12')
+  );
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
+  const handleCategoryChange = (category: string | null) => {
+    setSelectedCategory(category);
+    
+    // Update URL with new category and reset to page 1
+    const params = new URLSearchParams(searchParams);
+    if (category) {
+      params.set('category', category);
+    } else {
+      params.delete('category');
     }
-  }, [user, loading, router]);
+    params.set('page', '1'); // Reset to page 1 when changing category
+    router.push(`/news?${params.toString()}`);
+  };
 
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      router.push('/');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
+  const handleItemsPerPageChange = (value: number) => {
+    setItemsPerPage(value);
+    
+    // Update URL with new items per page and reset to page 1
+    const params = new URLSearchParams(searchParams);
+    params.set('itemsPerPage', value.toString());
+    params.set('page', '1'); // Reset to page 1 when changing items per page
+    router.push(`/news?${params.toString()}`);
   };
 
   const categories = [
@@ -40,79 +48,89 @@ export default function NewsPage() {
     { id: 'lifestyle', name: 'Lifestyle' }
   ];
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#004C54]"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
+  const itemsPerPageOptions = [
+    { value: 6, label: '6 per page' },
+    { value: 12, label: '12 per page' },
+    { value: 24, label: '24 per page' },
+    { value: 48, label: '48 per page' }
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header 
-        onMenuClick={() => setIsSidebarOpen(true)}
-        onProfileClick={() => setIsProfileOpen(!isProfileOpen)}
-      />
-      
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-
-      {/* Profile Dropdown */}
-      {isProfileOpen && (
-        <div className="absolute right-4 top-16 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
-          <div className="py-1">
-            <button
-              onClick={handleSignOut}
-              className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            >
-              Sign Out
-            </button>
+    <>
+      <div className="mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+              <FaNewspaper className="mr-2 text-[#004C54]" />
+              Philadelphia News
+            </h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Stay updated with the latest news from Philadelphia&apos;s top sources
+            </p>
           </div>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <div className="pt-16 lg:pl-64">
-        <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-          <div className="mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-                  <FaNewspaper className="mr-2 text-[#004C54]" />
-                  Philadelphia News
-                </h1>
-                <p className="mt-1 text-sm text-gray-500">
-                  Stay updated with the latest news from Philadelphia&apos;s top sources
-                </p>
-              </div>
-              
-              {/* Category Filter */}
-              <div className="relative">
-                <div className="flex items-center space-x-2">
-                  <FaFilter className="text-gray-400" />
-                  <select
-                    value={selectedCategory || ''}
-                    onChange={(e) => setSelectedCategory(e.target.value || null)}
-                    className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[#004C54] focus:border-[#004C54] sm:text-sm rounded-md"
-                  >
-                    {categories.map((category) => (
-                      <option key={category.id || 'all'} value={category.id || ''}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+          
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Category Filter */}
+            <div className="relative">
+              <div className="flex items-center space-x-2">
+                <FaFilter className="text-gray-400" />
+                <select
+                  value={selectedCategory || ''}
+                  onChange={(e) => handleCategoryChange(e.target.value || null)}
+                  className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[#004C54] focus:border-[#004C54] sm:text-sm rounded-md"
+                  aria-label="Filter by category"
+                >
+                  {categories.map((category) => (
+                    <option key={category.id || 'all'} value={category.id || ''}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
+            
+            {/* Items per page selector */}
+            <div className="relative">
+              <select
+                value={itemsPerPage}
+                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[#004C54] focus:border-[#004C54] sm:text-sm rounded-md"
+                aria-label="Items per page"
+              >
+                {itemsPerPageOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
-
-          <NewsFeed category={selectedCategory || undefined} limit={50} />
-        </main>
+        </div>
       </div>
-    </div>
+      
+      {/* Category Quick Links */}
+      <div className="mb-6">
+        <div className="flex items-center mb-2">
+          <FaTags className="text-[#004C54] mr-2" />
+          <h2 className="text-lg font-medium text-gray-900">Categories</h2>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {categories.filter(cat => cat.id !== null).map(category => (
+            <Link 
+              key={category.id} 
+              href={`/news/${category.id}`}
+              className="px-4 py-2 bg-white rounded-full text-sm font-medium text-gray-700 hover:bg-[#004C54] hover:text-white transition-colors shadow-sm"
+            >
+              {category.name}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <NewsFeed 
+        category={selectedCategory || undefined} 
+        itemsPerPage={itemsPerPage} 
+      />
+    </>
   );
 }

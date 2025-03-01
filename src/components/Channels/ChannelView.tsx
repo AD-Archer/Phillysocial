@@ -115,7 +115,7 @@ const ChannelView: React.FC<ChannelViewProps> = ({ channelId }) => {
         <FaExclamationTriangle className="text-yellow-500 mb-4" size={32} />
         <h2 className="text-xl font-semibold text-gray-700 mb-2">Channel not found</h2>
         <p className="text-gray-500 max-w-md">
-          The channel you're looking for doesn't exist or you don't have permission to view it
+          The channel you&apos;re looking for doesn&apos;t exist or you don&apos;t have permission to view it
         </p>
       </div>
     );

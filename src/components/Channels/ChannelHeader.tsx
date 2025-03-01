@@ -4,7 +4,7 @@ import { FaLock, FaHashtag, FaKey, FaCopy, FaUserPlus, FaUserShield, FaCog } fro
 import Image from 'next/image';
 import { Channel } from '@/types/Channel';
 import { useAuth } from '@/lib/context/AuthContext';
-import { useToast } from '../Toast';
+import { useToast } from '../../layouts/Toast';
 
 interface ChannelHeaderProps {
   channel: Channel | null;
