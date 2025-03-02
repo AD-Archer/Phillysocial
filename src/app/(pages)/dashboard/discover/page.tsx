@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/context/AuthContext';
 import { 
@@ -17,8 +17,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { Channel } from '@/types/Channel';
-import { Post } from '@/types/Post';
-import { FaSearch, FaCompass, FaUsers, FaHashtag, FaComment } from 'react-icons/fa';
+import { FaSearch, FaCompass, FaUsers, FaComment } from 'react-icons/fa';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -270,10 +269,10 @@ export default function Discover() {
       
       // Cleanup subscriptions
       return () => {
-        unsubscribeChannels.then(unsub => unsub());
-        unsubscribeUsers.then(unsub => unsub());
-        unsubscribeTrending.then(unsub => unsub());
-        unsubscribeSuggested.then(unsub => unsub());
+        if (unsubscribeChannels) unsubscribeChannels.then(unsub => unsub && unsub());
+        if (unsubscribeUsers) unsubscribeUsers.then(unsub => unsub && unsub());
+        if (unsubscribeTrending) unsubscribeTrending.then(unsub => unsub && unsub());
+        if (unsubscribeSuggested) unsubscribeSuggested.then(unsub => unsub && unsub());
       };
     }
   }, [user, loading, router, fetchChannels, fetchUsers, fetchTrendingTopics, fetchSuggestedCommunities]);
@@ -410,6 +409,11 @@ export default function Discover() {
     }
   };
 
+  // Handle channel view
+  const handleChannelView = (channelId: string) => {
+    router.push(`/dashboard?channel=${channelId}`);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#003038] via-[#004C54] to-[#046A38]">
@@ -516,15 +520,15 @@ export default function Discover() {
                                 <h3 className="font-medium text-gray-800">{channel.name}</h3>
                                 <p className="text-sm text-gray-500 line-clamp-1">{channel.description}</p>
                                 <div className="mt-1 text-xs text-gray-400">
-                                  {channel.members.length} {channel.members.length === 1 ? 'member' : 'members'}
+                                  {channel.members?.length || 0} {(channel.members?.length || 0) === 1 ? 'member' : 'members'}
                                 </div>
                               </div>
-                              <Link
-                                href={`/dashboard?channel=${channel.id}`}
+                              <button
+                                onClick={() => handleChannelView(channel.id)}
                                 className="ml-4 px-3 py-1 bg-[#004C54] text-white text-sm rounded-md hover:bg-[#003940] transition-colors"
                               >
                                 View
-                              </Link>
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -591,12 +595,12 @@ export default function Discover() {
                                   <p className="text-sm text-gray-500 line-clamp-1">{userProfile.bio}</p>
                                 )}
                               </div>
-                              <Link
-                                href={`/profile/${userProfile.id}`}
+                              <button
+                                onClick={(e) => handleUserClick(userProfile.id, e)}
                                 className="ml-4 px-3 py-1 bg-[#004C54] text-white text-sm rounded-md hover:bg-[#003940] transition-colors"
                               >
                                 View
-                              </Link>
+                              </button>
                             </div>
                           </div>
                         ))}
@@ -726,7 +730,13 @@ export default function Discover() {
       {/* User Mini Profile Popup */}
       {showProfile && selectedUser && (
         <UserMiniProfile
-          user={selectedUser}
+          user={{
+            uid: selectedUser.id,
+            displayName: selectedUser.displayName,
+            email: selectedUser.email || '',
+            photoURL: selectedUser.photoURL || undefined,
+            bio: selectedUser.bio
+          }}
           onClose={() => setShowProfile(false)}
           position={profilePosition}
         />
