@@ -10,6 +10,7 @@ export interface Post {
   likes: string[]; // user IDs
   comments: Comment[];
   imageUrl?: string;
+  isDeleted?: boolean; // Flag to indicate if the post has been deleted
 }
 
 export interface Comment {

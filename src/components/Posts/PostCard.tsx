@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { FaHeart, FaRegHeart, FaComment, FaEllipsisH, FaTrash, FaEdit, FaReply } from 'react-icons/fa';
-import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Post, Comment } from '@/types/Post';
@@ -488,16 +488,28 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
     
     try {
       const postRef = doc(db, 'posts', post.id);
-      await deleteDoc(postRef);
       
-      // Notify parent component about deletion
+      // Instead of deleting the post, mark it as deleted
+      await updateDoc(postRef, {
+        isDeleted: true,
+        content: "[This post has been deleted]",
+        lastEdited: new Date()
+      });
+      
+      // Update local state
+      post.isDeleted = true;
+      post.content = "[This post has been deleted]";
+      post.lastEdited = new Date();
+      
+      // Notify parent component about the update
       if (onPostDeleted) {
         onPostDeleted(post.id);
       }
+      
+      setIsDeleting(false);
     } catch (error) {
-      console.error('Error deleting post:', error);
+      console.error('Error marking post as deleted:', error);
       alert('Failed to delete post. Please try again.');
-    } finally {
       setIsDeleting(false);
     }
   };
@@ -630,7 +642,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
               </p>
             </div>
             
-            {(isPostCreator || isAdmin) && (
+            {(isPostCreator || isAdmin) && !post.isDeleted && (
               <div className="relative" ref={optionsRef}>
                 <button 
                   className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"
@@ -692,10 +704,17 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
             </form>
           ) : (
             <>
-              <p className="mt-2 text-gray-700 whitespace-pre-wrap break-words">{post.content}</p>
-              {post.lastEdited && (
+              <p className={`mt-2 ${post.isDeleted ? 'text-gray-500 italic' : 'text-gray-700'} whitespace-pre-wrap break-words`}>
+                {post.content}
+              </p>
+              {post.lastEdited && !post.isDeleted && (
                 <p className="text-xs text-gray-400 mt-1 italic">
                   Edited {formatTimeAgo(post.lastEdited)}
+                </p>
+              )}
+              {post.isDeleted && (
+                <p className="text-xs text-gray-400 mt-1 italic">
+                  Deleted {post.lastEdited ? formatTimeAgo(post.lastEdited) : ''}
                 </p>
               )}
             </>
@@ -704,15 +723,17 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
           <div className="mt-4 flex items-center space-x-4">
             <button 
               onClick={handleLike}
-              className={`flex items-center space-x-1 ${isLiked ? 'text-red-500' : 'text-gray-500'} hover:text-red-500`}
+              disabled={post.isDeleted}
+              className={`flex items-center space-x-1 ${isLiked ? 'text-red-500' : 'text-gray-500'} hover:text-red-500 ${post.isDeleted ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {isLiked ? <FaHeart size={16} /> : <FaRegHeart size={16} />}
               <span>{likeCount}</span>
             </button>
             
             <button 
-              onClick={() => setShowComments(!showComments)}
-              className="flex items-center space-x-1 text-gray-500 hover:text-gray-700"
+              onClick={() => !post.isDeleted && setShowComments(!showComments)}
+              disabled={post.isDeleted}
+              className={`flex items-center space-x-1 text-gray-500 hover:text-gray-700 ${post.isDeleted ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <FaComment size={16} />
               <span>{post.comments.length}</span>
@@ -739,22 +760,24 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
                 </div>
               )}
               
-              <form onSubmit={handleSubmitComment} className="flex space-x-2">
-                <input
-                  type="text"
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Add a comment..."
-                  className="flex-1 p-2 border rounded-md text-sm focus:ring-[#004C54] focus:border-[#004C54]"
-                />
-                <button
-                  type="submit"
-                  disabled={!commentText.trim() || isSubmittingComment}
-                  className="px-3 py-2 bg-[#004C54] text-white text-sm rounded-md hover:bg-[#003940] disabled:opacity-50"
-                >
-                  {isSubmittingComment ? 'Sending...' : 'Send'}
-                </button>
-              </form>
+              {!post.isDeleted && (
+                <form onSubmit={handleSubmitComment} className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder="Add a comment..."
+                    className="flex-1 p-2 border rounded-md text-sm focus:ring-[#004C54] focus:border-[#004C54]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!commentText.trim() || isSubmittingComment}
+                    className="px-3 py-2 bg-[#004C54] text-white text-sm rounded-md hover:bg-[#003940] disabled:opacity-50"
+                  >
+                    {isSubmittingComment ? 'Sending...' : 'Send'}
+                  </button>
+                </form>
+              )}
             </div>
           )}
         </div>
