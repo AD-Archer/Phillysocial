@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { FaHeart, FaRegHeart, FaComment, FaEllipsisH, FaTrash, FaEdit } from 'react-icons/fa';
-import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Post, Comment } from '@/types/Post';
@@ -36,6 +36,68 @@ interface PostCardProps {
   onPostEdited?: (postId: string, newContent: string, editedAt: Date) => void;
 }
 
+interface CommentItemProps {
+  comment: Comment;
+}
+
+const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
+  const [authorInfo, setAuthorInfo] = useState({
+    name: comment.authorName,
+    photoURL: comment.authorPhotoURL || undefined
+  });
+
+  // Fetch the latest author information from Firestore
+  useEffect(() => {
+    const fetchAuthorInfo = async () => {
+      try {
+        const authorRef = doc(db, 'users', comment.authorId);
+        const authorDoc = await getDoc(authorRef);
+        
+        if (authorDoc.exists()) {
+          const authorData = authorDoc.data();
+          setAuthorInfo({
+            name: authorData.displayName || comment.authorName,
+            photoURL: authorData.photoURL || comment.authorPhotoURL
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching comment author info:', error);
+      }
+    };
+    
+    fetchAuthorInfo();
+  }, [comment.authorId, comment.authorName, comment.authorPhotoURL]);
+
+  return (
+    <div className="flex space-x-2">
+      <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
+        {authorInfo.photoURL ? (
+          <Image
+            src={authorInfo.photoURL}
+            alt={authorInfo.name}
+            width={32}
+            height={32}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs font-medium">
+            {authorInfo.name[0].toUpperCase()}
+          </div>
+        )}
+      </div>
+      <div className="flex-1 bg-gray-100 rounded-lg p-2">
+        <div className="flex justify-between items-center">
+          <span className="font-medium text-sm">{authorInfo.name}</span>
+          <span className="text-xs text-gray-500">
+            {formatTimeAgo(comment.createdAt)}
+          </span>
+        </div>
+        <p className="text-sm text-gray-700 mt-1">{comment.content}</p>
+      </div>
+    </div>
+  );
+};
+
 const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPostEdited }) => {
   const [isLiked, setIsLiked] = useState(post.likes.includes(useAuth().user?.uid || ''));
   const [likeCount, setLikeCount] = useState(post.likes.length);
@@ -49,6 +111,34 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
   const [showOptions, setShowOptions] = useState(false);
   const optionsRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+  
+  // Add state for updated author info
+  const [authorInfo, setAuthorInfo] = useState({
+    name: post.authorName,
+    photoURL: post.authorPhotoURL || '/default-avatar.png'
+  });
+
+  // Fetch the latest author information from Firestore
+  useEffect(() => {
+    const fetchAuthorInfo = async () => {
+      try {
+        const authorRef = doc(db, 'users', post.authorId);
+        const authorDoc = await getDoc(authorRef);
+        
+        if (authorDoc.exists()) {
+          const authorData = authorDoc.data();
+          setAuthorInfo({
+            name: authorData.displayName || post.authorName,
+            photoURL: authorData.photoURL || post.authorPhotoURL || '/default-avatar.png'
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching author info:', error);
+      }
+    };
+    
+    fetchAuthorInfo();
+  }, [post.authorId, post.authorName, post.authorPhotoURL]);
 
   // Check if current user is admin or post creator
   const isAdmin = channel?.admins?.includes(user?.uid || '');
@@ -104,12 +194,16 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
     setIsSubmittingComment(true);
     
     try {
+      // Use Firestore user data if available, fallback to Firebase user data
+      const displayName = user.firestoreData?.displayName || user.displayName || 'Anonymous';
+      const photoURL = user.firestoreData?.photoURL || user.photoURL || undefined;
+      
       const newComment: Comment = {
         id: Date.now().toString(), // Simple ID generation
         content: commentText.trim(),
         authorId: user.uid,
-        authorName: user.displayName || 'Anonymous',
-        authorPhotoURL: user.photoURL || undefined,
+        authorName: displayName,
+        authorPhotoURL: photoURL,
         createdAt: new Date()
       };
       
@@ -207,8 +301,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
       <div className="flex items-start space-x-3">
         <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
           <Image
-            src={post.authorPhotoURL || '/default-avatar.png'}
-            alt={`${post.authorName}'s profile`}
+            src={authorInfo.photoURL}
+            alt={`${authorInfo.name}'s profile`}
             width={40}
             height={40}
             className="w-full h-full object-cover"
@@ -218,7 +312,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-start">
             <div>
-              <h3 className="font-medium text-gray-900">{post.authorName}</h3>
+              <h3 className="font-medium text-gray-900">{authorInfo.name}</h3>
               <p className="text-xs text-gray-500">
                 {formatTimeAgo(post.createdAt)}
               </p>
@@ -318,32 +412,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
               {post.comments.length > 0 ? (
                 <div className="space-y-3">
                   {post.comments.map(comment => (
-                    <div key={comment.id} className="flex space-x-2">
-                      <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
-                        {comment.authorPhotoURL ? (
-                          <Image
-                            src={comment.authorPhotoURL}
-                            alt={comment.authorName}
-                            width={32}
-                            height={32}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs font-medium">
-                            {comment.authorName[0].toUpperCase()}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 bg-gray-100 rounded-lg p-2">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium text-sm">{comment.authorName}</span>
-                          <span className="text-xs text-gray-500">
-                            {formatTimeAgo(comment.createdAt)}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-700 mt-1">{comment.content}</p>
-                      </div>
-                    </div>
+                    <CommentItem key={comment.id} comment={comment} />
                   ))}
                 </div>
               ) : (

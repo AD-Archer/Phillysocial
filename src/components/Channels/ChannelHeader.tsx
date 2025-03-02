@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { FaLock, FaHashtag, FaKey, FaCopy, FaCog, FaVolumeMute, FaEdit, FaUserFriends, FaTrash } from 'react-icons/fa';
+import { FaLock, FaHashtag, FaKey, FaCopy, FaCog, FaEdit, FaUserFriends, FaTrash } from 'react-icons/fa';
 import Image from 'next/image';
 import { Channel } from '@/types/Channel';
 import { useAuth } from '@/lib/context/AuthContext';
@@ -34,8 +34,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
     if (!user) return false;
     return channel.admins?.includes(user.uid) || false;
   };
-  
-  const isUserMuted = channel.mutedUsers?.includes(user?.uid || '');
 
   const handleChannelUpdate = (updatedChannel: Channel) => {
     if (onUpdate) {
@@ -48,46 +46,40 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           {channel.imageUrl ? (
-            <div className="relative w-10 h-10 mr-3 rounded-md overflow-hidden">
+            <div className="w-10 h-10 rounded-full overflow-hidden mr-3 flex-shrink-0">
               <Image 
                 src={channel.imageUrl} 
-                alt={`${channel.name} icon`}
-                fill
-                sizes="40px"
-                className="object-cover"
+                alt={channel.name} 
+                width={40} 
+                height={40} 
+                className="w-full h-full object-cover"
               />
             </div>
           ) : (
-            <div className="w-10 h-10 mr-3 bg-gray-100 rounded-md flex items-center justify-center text-gray-500">
-              {channel.isPublic ? <FaHashtag size={20} /> : <FaLock size={20} />}
+            <div className="w-10 h-10 rounded-full bg-[#004C54] text-white flex items-center justify-center mr-3 flex-shrink-0">
+              {channel.isPublic ? (
+                <FaHashtag size={18} />
+              ) : (
+                <FaLock size={18} />
+              )}
             </div>
           )}
           
           <div>
-            <h2 className="text-xl font-semibold text-[#004C54] flex items-center">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
               {channel.name}
               {!channel.isPublic && (
                 <FaLock className="ml-2 text-gray-500" size={14} />
               )}
-              {isUserMuted && (
-                <div className="ml-2 flex items-center text-yellow-500" title="You are muted in this channel">
-                  <FaVolumeMute size={14} />
-                </div>
-              )}
             </h2>
-            <p className="text-sm text-gray-600 truncate max-w-md">
-              {channel.description || 'No description provided'}
-            </p>
-            {isUserMuted && (
-              <p className="text-xs text-yellow-600 mt-1">
-                You are muted in this channel. You can view messages but cannot post.
-              </p>
+            {channel.description && (
+              <p className="text-sm text-gray-600 line-clamp-1">{channel.description}</p>
             )}
           </div>
         </div>
         
         <div className="flex items-center space-x-2">
-          {/* View Members button - Always visible */}
+          {/* Show members button */}
           {onShowMembers && (
             <button
               onClick={onShowMembers}
@@ -99,7 +91,19 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             </button>
           )}
           
-          {/* Edit Channel button for admins */}
+          {/* Show invite code button for admins */}
+          {!channel.isPublic && isUserAdmin() && !showInviteCode && (
+            <button
+              onClick={() => setShowInviteCode(true)}
+              className="p-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
+              title="Show Invite Code"
+              aria-label="Show Invite Code"
+            >
+              <FaKey size={16} />
+            </button>
+          )}
+          
+          {/* Edit channel button for admins */}
           {isUserAdmin() && (
             <button
               onClick={() => setShowEditModal(true)}
@@ -111,23 +115,11 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             </button>
           )}
           
-          {/* Invite Code button for private channels (admin only) */}
-          {isUserAdmin() && !channel.isPublic && (
-            <button
-              onClick={() => setShowInviteCode(!showInviteCode)}
-              className="p-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
-              title={showInviteCode ? "Hide Invite Code" : "Show Invite Code"}
-              aria-label={showInviteCode ? "Hide Invite Code" : "Show Invite Code"}
-            >
-              <FaKey size={16} />
-            </button>
-          )}
-          
-          {/* Channel Management button for admins */}
+          {/* Channel management button for admins */}
           {isUserAdmin() && onShowManagement && (
             <button
               onClick={onShowManagement}
-              className="p-2 bg-[#046A38] text-white rounded-full hover:bg-[#035C2F] transition-colors"
+              className="p-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
               title="Channel Management"
               aria-label="Channel Management"
             >
@@ -187,15 +179,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
         </div>
       )}
       
-      {/* Member count */}
-      <div className="mt-3 text-sm text-gray-600">
-        <span className="font-medium">{channel.members.length}</span> {channel.members.length === 1 ? 'member' : 'members'}
-        {channel.invitedUsers && channel.invitedUsers.length > 0 && (
-          <span className="ml-2">• <span className="font-medium">{channel.invitedUsers.length}</span> invited</span>
-        )}
-      </div>
-
-      {/* Edit Channel Modal */}
+      {/* Edit channel modal */}
       {showEditModal && (
         <EditChannelModal
           channel={channel}
@@ -205,6 +189,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       )}
     </div>
   );
-};
+}
 
 export default ChannelHeader; 

@@ -11,6 +11,12 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick }) => {
   const { user } = useAuth();
+  
+  // Get the profile picture URL from firestoreData if available, otherwise use the default photoURL
+  const profilePicture = user?.firestoreData?.photoURL || user?.photoURL;
+  // Get the display name or email for the fallback avatar
+  const displayName = user?.firestoreData?.displayName || user?.displayName;
+  const email = user?.firestoreData?.email || user?.email;
 
   return (
     <header className="bg-[#003940] text-white p-4 shadow-lg fixed top-0 w-full z-10">
@@ -31,22 +37,24 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick }) => {
               onClick={onProfileClick}
               className="flex items-center space-x-2 focus:outline-none"
             >
-              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                {user?.photoURL ? (
+              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                {profilePicture ? (
                   <Image
-                    src={user.photoURL}
+                    src={profilePicture}
                     alt="Profile"
                     width={32}
                     height={32}
-                    className="rounded-full"
+                    className="rounded-full object-cover"
                   />
                 ) : (
                   <span className="text-sm font-medium text-gray-700">
-                    {user?.email?.[0].toUpperCase()}
+                    {(displayName || email || '?')[0].toUpperCase()}
                   </span>
                 )}
               </div>
-              <span className="hidden md:block text-white">{user?.email}</span>
+              <span className="hidden md:block text-white truncate max-w-[150px]">
+                {displayName || email}
+              </span>
             </button>
           </div>
         )}

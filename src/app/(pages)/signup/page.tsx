@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { signUp, signInWithGoogle } from '@lib/auth';
 import { useRouter } from 'next/navigation';
 import MainLayout from '@/layouts/MainLayout';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebaseConfig';
 
 export default function SignUp() {
   const router = useRouter();
@@ -24,8 +26,26 @@ export default function SignUp() {
         throw new Error('All fields are required.');
       }
 
-      await signUp(email, password);
-      router.push('/dashboard');
+      const userCredential = await signUp(email, password);
+      
+      // Create initial user document with name but incomplete profile
+      try {
+        await setDoc(doc(db, 'users', userCredential.uid), {
+          displayName: name,
+          email: userCredential.email,
+          photoURL: '',
+          bio: '',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          status: 'online',
+          role: 'member'
+        });
+      } catch (docError) {
+        console.error('Error creating initial user document:', docError);
+      }
+      
+      // Redirect to profile completion
+      router.push('/profile?complete=required');
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
@@ -42,8 +62,27 @@ export default function SignUp() {
     setLoading(true);
 
     try {
-      await signInWithGoogle();
-      router.push('/dashboard');
+      const userCredential = await signInWithGoogle();
+      
+      // Check if user document exists, if not create it
+      try {
+        const userRef = doc(db, 'users', userCredential.uid);
+        await setDoc(userRef, {
+          displayName: userCredential.displayName || '',
+          email: userCredential.email,
+          photoURL: userCredential.photoURL || '',
+          bio: '',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          status: 'online',
+          role: 'member'
+        }, { merge: true });
+      } catch (docError) {
+        console.error('Error creating/updating user document:', docError);
+      }
+      
+      // Redirect to profile completion
+      router.push('/profile?complete=required');
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);

@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { signIn, signInWithGoogle } from '@lib/auth';
 import { useRouter } from 'next/navigation';
 import MainLayout from '@/layouts/MainLayout';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebaseConfig';
 
 export default function Login() {
   const router = useRouter();
@@ -12,6 +14,24 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const checkProfileCompletion = async (userId: string) => {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      
+      if (!userDoc.exists()) return false;
+      
+      const userData = userDoc.data();
+      return Boolean(
+        userData.displayName && 
+        userData.bio && 
+        userData.bio.trim().length > 0
+      );
+    } catch (error) {
+      console.error('Error checking profile completion:', error);
+      return false;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,8 +43,17 @@ export default function Login() {
         throw new Error('Both fields are required.');
       }
 
-      await signIn(email, password);
-      router.push('/dashboard');
+      const userCredential = await signIn(email, password);
+      
+      // Check if profile is complete
+      const isProfileComplete = await checkProfileCompletion(userCredential.uid);
+      
+      // Redirect based on profile completion status
+      if (isProfileComplete) {
+        router.push('/dashboard');
+      } else {
+        router.push('/profile?complete=required');
+      }
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
@@ -41,8 +70,17 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await signInWithGoogle();
-      router.push('/dashboard');
+      const userCredential = await signInWithGoogle();
+      
+      // Check if profile is complete
+      const isProfileComplete = await checkProfileCompletion(userCredential.uid);
+      
+      // Redirect based on profile completion status
+      if (isProfileComplete) {
+        router.push('/dashboard');
+      } else {
+        router.push('/profile?complete=required');
+      }
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);

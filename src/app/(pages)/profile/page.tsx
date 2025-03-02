@@ -1,19 +1,24 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '@/lib/context/AuthContext';
 import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
-import { FaQuestionCircle, FaTimes, FaUser } from 'react-icons/fa';
+import { FaQuestionCircle, FaTimes, FaUser, FaExclamationTriangle } from 'react-icons/fa';
 import MainLayout from '@/layouts/MainLayout';
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isCompletionRequired = searchParams.get('complete') === 'required';
+  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showImageGuide, setShowImageGuide] = useState(false);
+  const [bioError, setBioError] = useState('');
+  const [nameError, setNameError] = useState('');
   
   const [profileData, setProfileData] = useState({
     displayName: '',
@@ -42,6 +47,19 @@ export default function ProfilePage() {
 
     const fetchUserProfile = async () => {
       try {
+        // If we have Firestore data in the user object, use it
+        if (user.firestoreData) {
+          setProfileData({
+            displayName: user.firestoreData.displayName || '',
+            email: user.firestoreData.email || user.email || '',
+            photoURL: user.firestoreData.photoURL || '',
+            bio: user.firestoreData.bio || '',
+          });
+          setLoading(false);
+          return;
+        }
+
+        // Otherwise, fetch from Firestore directly
         const userRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userRef);
         
@@ -83,19 +101,42 @@ export default function ProfilePage() {
   const handleSave = async () => {
     if (!user) return;
     
-    setSaving(true);
+    // Reset errors
+    setBioError('');
+    setNameError('');
     setError('');
+    
+    // Validate required fields
+    let hasError = false;
+    
+    if (!profileData.displayName.trim()) {
+      setNameError('Display name is required');
+      hasError = true;
+    }
+    
+    if (!profileData.bio.trim()) {
+      setBioError('Bio is required - please tell us a little about yourself, it can literally be anything or a single word');
+      hasError = true;
+    }
+    
+    if (hasError) {
+      return;
+    }
+    
+    setSaving(true);
 
     try {
       const userRef = doc(db, 'users', user.uid);
       const userDoc = await getDoc(userRef);
       
       const userData = {
-        displayName: profileData.displayName,
+        displayName: profileData.displayName.trim(),
         photoURL: profileData.photoURL,
-        bio: profileData.bio,
+        bio: profileData.bio.trim(),
         email: user.email,
         updatedAt: new Date(),
+        status: 'online',
+        role: 'member',
         // Add createdAt only if the document is being created for the first time
         ...(userDoc.exists() ? {} : { createdAt: new Date() })
       };
@@ -104,6 +145,11 @@ export default function ProfilePage() {
         await updateDoc(userRef, userData);
       } else {
         await setDoc(userRef, userData);
+      }
+      
+      // If this was a required completion, redirect to dashboard
+      if (isCompletionRequired) {
+        router.push('/dashboard');
       }
     } catch (err) {
       console.error('Error updating profile:', err);
@@ -127,9 +173,19 @@ export default function ProfilePage() {
         <div className="absolute inset-0 bg-black/10 backdrop-blur-[2px]"></div>
         <div className="relative px-4 py-12 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto">
-            <h1 className="text-5xl font-bold tracking-tight text-white text-center mb-12 drop-shadow-lg">
+            <h1 className="text-5xl font-bold tracking-tight text-white text-center mb-6 drop-shadow-lg">
               Edit <span className="text-[#A5ACAF]">Profile</span>
             </h1>
+            
+            {isCompletionRequired && (
+              <div className="mb-8 p-4 bg-yellow-600/50 backdrop-blur-sm text-white rounded-xl flex items-center gap-3">
+                <FaExclamationTriangle className="text-yellow-300 flex-shrink-0" size={24} />
+                <div>
+                  <h2 className="font-bold text-xl">Profile Completion Required</h2>
+                  <p>Please complete your profile before continuing. You need to add a display name and a short bio.</p>
+                </div>
+              </div>
+            )}
             
             {error && (
               <div className="mb-6 p-4 bg-red-900/50 backdrop-blur-sm text-white rounded-xl text-center">
@@ -182,14 +238,20 @@ export default function ProfilePage() {
               <div className="space-y-6">
                 <div>
                   <label className="block text-lg font-medium text-[#A5ACAF] mb-2">
-                    Display Name
+                    Display Name <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="text"
                     value={profileData.displayName}
-                    onChange={(e) => setProfileData({ ...profileData, displayName: e.target.value })}
-                    className="w-full bg-black/30 border border-[#A5ACAF] rounded-xl p-3 text-white placeholder-gray-400 focus:outline-none focus:border-white focus:ring-2 focus:ring-white/20"
+                    onChange={(e) => {
+                      setProfileData({ ...profileData, displayName: e.target.value });
+                      if (e.target.value.trim()) setNameError('');
+                    }}
+                    className={`w-full bg-black/30 border ${nameError ? 'border-red-400' : 'border-[#A5ACAF]'} rounded-xl p-3 text-white placeholder-gray-400 focus:outline-none focus:border-white focus:ring-2 focus:ring-white/20`}
                   />
+                  {nameError && (
+                    <p className="mt-2 text-red-400 text-sm">{nameError}</p>
+                  )}
                 </div>
 
                 <div>
@@ -209,15 +271,21 @@ export default function ProfilePage() {
 
                 <div>
                   <label className="block text-lg font-medium text-[#A5ACAF] mb-2">
-                    Bio
+                    Bio <span className="text-red-400">*</span>
                   </label>
                   <textarea
                     value={profileData.bio}
-                    onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
-                    className="w-full bg-black/30 border border-[#A5ACAF] rounded-xl p-3 text-white placeholder-gray-400 focus:outline-none focus:border-white focus:ring-2 focus:ring-white/20"
+                    onChange={(e) => {
+                      setProfileData({ ...profileData, bio: e.target.value });
+                      if (e.target.value.trim()) setBioError('');
+                    }}
+                    className={`w-full bg-black/30 border ${bioError ? 'border-red-400' : 'border-[#A5ACAF]'} rounded-xl p-3 text-white placeholder-gray-400 focus:outline-none focus:border-white focus:ring-2 focus:ring-white/20`}
                     rows={4}
                     placeholder="Tell us about yourself"
                   />
+                  {bioError && (
+                    <p className="mt-2 text-red-400 text-sm">{bioError}</p>
+                  )}
                 </div>
               </div>
 
@@ -226,7 +294,7 @@ export default function ProfilePage() {
                 disabled={saving}
                 className="mt-8 w-full bg-[#A5ACAF] text-[#003038] py-4 px-8 rounded-xl text-lg font-semibold shadow-lg hover:bg-white hover:text-[#004C54] transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
               >
-                {saving ? 'Saving...' : 'Save Changes'}
+                {saving ? 'Saving...' : isCompletionRequired ? 'Complete Profile' : 'Save Changes'}
               </button>
             </div>
           </div>
