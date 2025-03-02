@@ -7,7 +7,7 @@ import { signOut } from 'firebase/auth';
 import Sidebar from '@/layouts/Sidebar';
 import Header from '@/layouts/Header';
 import { motion } from 'framer-motion';
-import { FaHome, FaCompass, FaUsers, FaCalendarAlt, FaStore } from 'react-icons/fa';
+import { FaHome, FaCompass, FaCalendarAlt, FaStore } from 'react-icons/fa';
 import Link from 'next/link';
 
 interface DashboardLayoutProps {
@@ -59,7 +59,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const quickLinks = [
     { icon: <FaHome size={20} />, label: 'Home', href: '/dashboard' },
     { icon: <FaCompass size={20} />, label: 'Discover', href: '/dashboard/discover' },
-    { icon: <FaUsers size={20} />, label: 'Communities', href: '/dashboard/communities' },
     { icon: <FaCalendarAlt size={20} />, label: 'Events', href: '/dashboard/events' },
     { icon: <FaStore size={20} />, label: 'Local Business', href: '/dashboard/local-business' },
   ];

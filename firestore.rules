@@ -1,0 +1,381 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Common helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isChannelAdmin(channelId) {
+      return isAuthenticated() && channelId != null && 
+             exists(/databases/$(database)/documents/channels/$(channelId)) &&
+             get(/databases/$(database)/documents/channels/$(channelId)).data.admins.hasAny([request.auth.uid]);
+    }
+    
+    function isChannelMember(channelId) {
+      return isAuthenticated() && channelId != null && 
+             exists(/databases/$(database)/documents/channels/$(channelId)) &&
+             get(/databases/$(database)/documents/channels/$(channelId)).data.members.hasAny([request.auth.uid]);
+    }
+    
+    function isEventAdmin(eventId) {
+      // Return false if eventId is null or document doesn't exist
+      return isAuthenticated() && eventId != null && 
+             exists(/databases/$(database)/documents/events/$(eventId)) &&
+             (
+               // Check if admins field exists and contains the user
+               (("admins" in get(/databases/$(database)/documents/events/$(eventId)).data) && 
+                get(/databases/$(database)/documents/events/$(eventId)).data.admins.hasAny([request.auth.uid])) ||
+               // Check if createdBy field exists and matches the user
+               (("createdBy" in get(/databases/$(database)/documents/events/$(eventId)).data) && 
+                get(/databases/$(database)/documents/events/$(eventId)).data.createdBy == request.auth.uid)
+             );
+    }
+    
+    function isEventAttendee(eventId) {
+      // Return false if eventId is null or document doesn't exist
+      return isAuthenticated() && eventId != null && 
+             exists(/databases/$(database)/documents/events/$(eventId)) &&
+             // Check if attendees field exists and contains the user
+             ("attendees" in get(/databases/$(database)/documents/events/$(eventId)).data) &&
+             get(/databases/$(database)/documents/events/$(eventId)).data.attendees.hasAny([request.auth.uid]);
+    }
+    
+    function isSiteAdmin() {
+      return isAuthenticated() && 
+             (request.auth.uid == "ADMIN_UID_1" || 
+              request.auth.uid == "ADMIN_UID_2");
+    }
+    
+    function isChannelPublic(channelId) {
+      return channelId != null && 
+             exists(/databases/$(database)/documents/channels/$(channelId)) &&
+             get(/databases/$(database)/documents/channels/$(channelId)).data.isPublic == true;
+    }
+    
+    function isEventPublic(eventId) {
+      // Return false if eventId is null or document doesn't exist
+      return eventId != null && 
+             exists(/databases/$(database)/documents/events/$(eventId)) &&
+             // Check if isPublic field exists and is true
+             ("isPublic" in get(/databases/$(database)/documents/events/$(eventId)).data) &&
+             get(/databases/$(database)/documents/events/$(eventId)).data.isPublic == true;
+    }
+    
+    function canSeeChannel(channelId) {
+      return isAuthenticated() && channelId != null && 
+             exists(/databases/$(database)/documents/channels/$(channelId)) &&
+             (isChannelPublic(channelId) || 
+              isChannelMember(channelId) || 
+              isChannelAdmin(channelId));
+    }
+    
+    function canSeeEvent(eventId) {
+      // Anyone can see events now
+      return true;
+    }
+    
+    // DEBUG MODE - Set to false before deploying to production
+    function isDebugMode() {
+      return true; // Temporarily set to true for troubleshooting
+    }
+    
+    // User profiles
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) || isDebugMode() || isSiteAdmin();
+    }
+    
+    // Posts
+    match /posts/{postId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated() && (
+        isDebugMode() ||
+        (request.resource.data.userId == request.auth.uid &&
+         (request.resource.data.channelId == null || 
+          canSeeChannel(request.resource.data.channelId)))
+      );
+      
+      allow update: if isAuthenticated() && (
+        isDebugMode() ||
+        // Post creator can update their own post
+        resource.data.userId == request.auth.uid ||
+        
+        // Channel admins can update any post in their channel
+        (resource.data.channelId != null && isChannelAdmin(resource.data.channelId)) ||
+        
+        // Any user who can see the channel can update likes
+        (resource.data.channelId != null && 
+         canSeeChannel(resource.data.channelId) && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likeCount']))
+      );
+      
+      allow delete: if isAuthenticated() && (
+        isDebugMode() ||
+        resource.data.userId == request.auth.uid ||
+        (resource.data.channelId != null && isChannelAdmin(resource.data.channelId))
+      );
+      
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        
+        allow create: if isAuthenticated() && (
+          isDebugMode() ||
+          (request.resource.data.userId == request.auth.uid &&
+           (get(/databases/$(database)/documents/posts/$(postId)).data.channelId == null || 
+            canSeeChannel(get(/databases/$(database)/documents/posts/$(postId)).data.channelId)))
+        );
+        
+        allow update: if isAuthenticated() && (
+          isDebugMode() ||
+          // Comment creator can update their own comment
+          resource.data.userId == request.auth.uid ||
+          
+          // Channel admins can update any comment
+          (get(/databases/$(database)/documents/posts/$(postId)).data.channelId != null && 
+           isChannelAdmin(get(/databases/$(database)/documents/posts/$(postId)).data.channelId)) ||
+          
+          // Any user who can see the channel can update likes only
+          (get(/databases/$(database)/documents/posts/$(postId)).data.channelId != null && 
+           canSeeChannel(get(/databases/$(database)/documents/posts/$(postId)).data.channelId) &&
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likeCount']))
+        );
+        
+        allow delete: if isAuthenticated() && (
+          isDebugMode() ||
+          resource.data.userId == request.auth.uid ||
+          get(/databases/$(database)/documents/posts/$(postId)).data.userId == request.auth.uid ||
+          (get(/databases/$(database)/documents/posts/$(postId)).data.channelId != null && 
+           isChannelAdmin(get(/databases/$(database)/documents/posts/$(postId)).data.channelId))
+        );
+      }
+    }
+    
+    // Channels
+    match /channels/{channelId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated();
+      
+      allow update: if isAuthenticated() && (
+        isDebugMode() ||
+        // Original creator can do anything
+        resource.data.createdBy == request.auth.uid ||
+        
+        // Channel admins can update most fields
+        resource.data.admins.hasAny([request.auth.uid]) ||
+        
+        // Any authenticated user can update certain fields
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['lastActivity', 'messages', 'lastMessage', 'messageCount']) ||
+        
+        // Special case for joining a channel (for both public and private channels)
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']) &&
+          // Only the requesting user should be added to members
+          request.resource.data.members.hasAll(resource.data.members) &&
+          request.resource.data.members.removeAll(resource.data.members).hasOnly([request.auth.uid])
+        )
+      );
+      
+      allow delete: if isAuthenticated() && (
+        isDebugMode() ||
+        resource.data.createdBy == request.auth.uid || 
+        resource.data.admins.hasAny([request.auth.uid])
+      );
+      
+      // Channel messages subcollection
+      match /messages/{messageId} {
+        allow read: if isAuthenticated();
+        
+        allow create: if isAuthenticated() && (
+          isDebugMode() ||
+          isChannelMember(channelId)
+        );
+        
+        allow update: if isAuthenticated() && (
+          isDebugMode() ||
+          resource.data.authorId == request.auth.uid ||
+          isChannelAdmin(channelId)
+        );
+        
+        allow delete: if isAuthenticated() && (
+          isDebugMode() ||
+          resource.data.authorId == request.auth.uid ||
+          isChannelAdmin(channelId)
+        );
+      }
+      
+      // Ban history subcollection
+      match /banHistory/{banId} {
+        allow read: if isAuthenticated() && (
+          isDebugMode() ||
+          isChannelAdmin(channelId)
+        );
+        
+        allow create, update, delete: if isAuthenticated() && (
+          isDebugMode() ||
+          isChannelAdmin(channelId)
+        );
+      }
+    }
+    
+    // Channel messages (top-level collection)
+    match /channelMessages/{messageId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated() && (
+        isDebugMode() ||
+        (request.resource.data.userId == request.auth.uid &&
+         canSeeChannel(request.resource.data.channelId))
+      );
+      
+      allow update: if isAuthenticated() && (
+        isDebugMode() ||
+        // Message creator can update their own message
+        resource.data.userId == request.auth.uid ||
+        
+        // Channel admins can update any message
+        isChannelAdmin(resource.data.channelId) ||
+        
+        // Any user who can see the channel can update likes/reactions
+        (canSeeChannel(resource.data.channelId) && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'reactions', 'readBy']))
+      );
+      
+      allow delete: if isAuthenticated() && (
+        isDebugMode() ||
+        resource.data.userId == request.auth.uid ||
+        (resource.data.channelId != null && isChannelAdmin(resource.data.channelId))
+      );
+    }
+    
+    // Message likes/reactions
+    match /messageLikes/{likeId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated() && (
+        isDebugMode() ||
+        (request.resource.data.userId == request.auth.uid &&
+         (request.resource.data.channelId == null || 
+          canSeeChannel(request.resource.data.channelId)))
+      );
+      
+      allow update, delete: if isAuthenticated() && (
+        isDebugMode() ||
+        resource.data.userId == request.auth.uid
+      );
+    }
+    
+    // Standalone comments collection
+    match /comments/{commentId} {
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated() && (
+        isDebugMode() ||
+        (request.resource.data.userId == request.auth.uid &&
+         (request.resource.data.channelId == null || 
+          canSeeChannel(request.resource.data.channelId)))
+      );
+      
+      allow update: if isAuthenticated() && (
+        isDebugMode() ||
+        // Comment creator can update their own comment
+        resource.data.userId == request.auth.uid ||
+        
+        // Channel admins can update any comment in their channel
+        (resource.data.channelId != null && isChannelAdmin(resource.data.channelId)) ||
+        
+        // Any user who can see the channel can update likes only
+        (resource.data.channelId != null && 
+         canSeeChannel(resource.data.channelId) &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likeCount']))
+      );
+      
+      allow delete: if isAuthenticated() && (
+        isDebugMode() ||
+        resource.data.userId == request.auth.uid ||
+        (resource.data.postId != null && 
+         get(/databases/$(database)/documents/posts/$(resource.data.postId)).data.userId == request.auth.uid) ||
+        (resource.data.channelId != null && isChannelAdmin(resource.data.channelId)) ||
+        (resource.data.postId != null && 
+         get(/databases/$(database)/documents/posts/$(resource.data.postId)).data.channelId != null &&
+         isChannelAdmin(get(/databases/$(database)/documents/posts/$(resource.data.postId)).data.channelId))
+      );
+    }
+    
+    // Image uploads
+    match /images/{imageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && (
+        isDebugMode() ||
+        resource.data.userId == request.auth.uid
+      );
+    }
+    
+    // Events
+    match /events/{eventId} {
+      // Allow anyone to read events (no authentication required)
+      allow read: if true;
+      
+      allow create: if isAuthenticated();
+      
+      allow update: if isAuthenticated() && (
+        isDebugMode() ||
+        isEventAdmin(eventId) ||
+        // Special case for joining an event (adding self to attendees)
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['attendees']) &&
+          request.resource.data.attendees.hasAll(resource.data.attendees) &&
+          request.resource.data.attendees.removeAll(resource.data.attendees).hasOnly([request.auth.uid])
+        )
+      );
+      
+      allow delete: if isAuthenticated() && (
+        isDebugMode() ||
+        isEventAdmin(eventId)
+      );
+      
+      // Event comments
+      match /comments/{commentId} {
+        // Allow anyone to read event comments (no authentication required)
+        allow read: if true;
+        
+        allow create: if isAuthenticated() && (
+          isDebugMode() ||
+          isEventAttendee(eventId)
+        );
+        
+        allow update: if isAuthenticated() && (
+          isDebugMode() ||
+          resource.data.createdBy == request.auth.uid ||
+          // Allow updating likes only - removed canSeeEvent check since it's always true now
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likeCount'])
+        );
+        
+        allow delete: if isAuthenticated() && (
+          isDebugMode() ||
+          resource.data.createdBy == request.auth.uid ||
+          isEventAdmin(eventId)
+        );
+      }
+    }
+    
+    // User subscriptions to channels
+    match /channelSubscriptions/{subscriptionId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (
+        isDebugMode() ||
+        request.resource.data.userId == request.auth.uid
+      );
+    }
+  }
+} 
