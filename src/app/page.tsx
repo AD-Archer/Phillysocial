@@ -107,7 +107,7 @@ export default function Home() {
               <h1 className="text-5xl eagles-font tracking-tight text-white sm:text-7xl mb-6 drop-shadow-lg">
                 Philly <span className="text-[#A5ACAF]">Social</span>
               </h1>
-              <p className="text-lg text-gray-600 mb-8">
+              <p className="text-lg text-white-600 mb-8">
                 Join Philadelphia&apos;s premier social platform for connecting with your community
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
@@ -138,6 +138,7 @@ export default function Home() {
             >
               <div className="bg-black/30 backdrop-blur-md rounded-2xl p-6 shadow-xl">
                 <h3 className="text-2xl font-bold mb-4 text-center">Community Pulse</h3>
+                <p>These are example messages</p>
                 <div className="space-y-4">
                   <div className="bg-black/20 p-4 rounded-lg">
                     <p className="text-[#A5ACAF] mb-2">Trending in Philly</p>
