@@ -1,15 +1,30 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/context/AuthContext';
-import { collection, query, where, getDocs, orderBy, limit, startAfter, DocumentData } from 'firebase/firestore';
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  orderBy, 
+  limit, 
+  startAfter, 
+  DocumentData, 
+  onSnapshot,
+  doc,
+  getDoc
+} from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { Channel } from '@/types/Channel';
 import { Post } from '@/types/Post';
-import { FaSearch, FaCompass, FaUsers, FaHashtag  } from 'react-icons/fa';
+import { FaSearch, FaCompass, FaUsers, FaHashtag, FaComment } from 'react-icons/fa';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import UserAvatar from '@/components/Profile/UserAvatar';
+import UserProfileLink from '@/components/Profile/UserProfileLink';
+import UserMiniProfile from '@/components/Profile/UserMiniProfile';
 
 // Define a User interface to replace 'any'
 interface UserProfile {
@@ -17,9 +32,23 @@ interface UserProfile {
   displayName: string;
   photoURL?: string | null;
   bio?: string;
+  email?: string;
+  uid?: string;
 }
 
-type DiscoverTab = 'channels' | 'posts' | 'users';
+// Define a TrendingTopic interface
+interface TrendingTopic {
+  id: string;
+  content: string;
+  channelId: string;
+  channelName: string;
+  authorId: string;
+  authorName: string;
+  createdAt: Date;
+  messageCount: number;
+}
+
+type DiscoverTab = 'channels' | 'users';
 
 export default function Discover() {
   const { user, loading } = useAuth();
@@ -27,37 +56,36 @@ export default function Discover() {
   const [activeTab, setActiveTab] = useState<DiscoverTab>('channels');
   const [searchQuery, setSearchQuery] = useState('');
   const [channels, setChannels] = useState<Channel[]>([]);
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [filteredChannels, setFilteredChannels] = useState<Channel[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastVisible, setLastVisible] = useState<DocumentData | null>(null);
   const [hasMore, setHasMore] = useState(true);
-  const [trendingTopics] = useState([
-    { name: 'Eagles', count: 245 },
-    { name: 'Phillies', count: 187 },
-    { name: 'Sixers', count: 156 },
-    { name: 'Flyers', count: 132 },
-    { name: 'CheeseSteaks', count: 98 },
-  ]);
+  const [trendingTopics, setTrendingTopics] = useState<TrendingTopic[]>([]);
+  const [suggestedCommunities, setSuggestedCommunities] = useState<Channel[]>([]);
+  
+  // Profile popup state
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [profilePosition, setProfilePosition] = useState({ top: 0, left: 0 });
+  const [showProfile, setShowProfile] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  // Fetch channels data
+  const fetchChannels = useCallback(async () => {
     if (!user) return;
     
     setIsLoading(true);
-    setHasMore(true);
     
     try {
-      let q;
+      const q = query(
+        collection(db, 'channels'),
+        where('isPublic', '==', true),
+        orderBy('createdAt', 'desc'),
+        limit(10)
+      );
       
-      if (activeTab === 'channels') {
-        q = query(
-          collection(db, 'channels'),
-          where('isPublic', '==', true),
-          orderBy('createdAt', 'desc'),
-          limit(10)
-        );
-        
-        const querySnapshot = await getDocs(q);
+      // Use onSnapshot for real-time updates
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const channelData: Channel[] = [];
         
         querySnapshot.forEach((doc) => {
@@ -77,77 +105,203 @@ export default function Discover() {
         });
         
         setChannels(channelData);
+        setFilteredChannels(channelData);
         setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
         setHasMore(querySnapshot.docs.length === 10);
-        
-      } else if (activeTab === 'posts') {
-        q = query(
-          collection(db, 'posts'),
-          orderBy('createdAt', 'desc'),
-          limit(10)
-        );
-        
-        const querySnapshot = await getDocs(q);
-        const postData: Post[] = [];
-        
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          postData.push({
-            id: doc.id,
-            content: data.content,
-            authorId: data.authorId,
-            authorName: data.authorName,
-            authorPhotoURL: data.authorPhotoURL || null,
-            channelId: data.channelId,
-            createdAt: data.createdAt?.toDate() || new Date(),
-            likes: data.likes || [],
-            comments: data.comments || [],
-            imageUrl: data.imageUrl || null,
-          });
-        });
-        
-        setPosts(postData);
-        setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
-        setHasMore(querySnapshot.docs.length === 10);
-        
-      } else if (activeTab === 'users') {
-        q = query(
-          collection(db, 'users'),
-          orderBy('displayName'),
-          limit(10)
-        );
-        
-        const querySnapshot = await getDocs(q);
+        setIsLoading(false);
+      });
+      
+      return unsubscribe;
+    } catch (error) {
+      console.error('Error fetching channels:', error);
+      setIsLoading(false);
+      return () => {};
+    }
+  }, [user]);
+
+  // Fetch users data
+  const fetchUsers = useCallback(async () => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    
+    try {
+      const q = query(
+        collection(db, 'users'),
+        orderBy('displayName'),
+        limit(10)
+      );
+      
+      // Use onSnapshot for real-time updates
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const userData: UserProfile[] = [];
         
         querySnapshot.forEach((doc) => {
           const data = doc.data();
           userData.push({
             id: doc.id,
+            uid: doc.id,
             displayName: data.displayName || 'Anonymous',
             photoURL: data.photoURL || null,
             bio: data.bio || '',
+            email: data.email || '',
           });
         });
         
         setUsers(userData);
+        setFilteredUsers(userData);
         setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
         setHasMore(querySnapshot.docs.length === 10);
-      }
+        setIsLoading(false);
+      });
+      
+      return unsubscribe;
     } catch (error) {
-      console.error('Error fetching discover data:', error);
-    } finally {
+      console.error('Error fetching users:', error);
       setIsLoading(false);
+      return () => {};
     }
-  }, [activeTab, user]);
+  }, [user]);
 
+  // Fetch trending topics (real messages from public channels)
+  const fetchTrendingTopics = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      // Get recent messages from public channels
+      const q = query(
+        collection(db, 'posts'),
+        orderBy('createdAt', 'desc'),
+        limit(5)
+      );
+      
+      // Use onSnapshot for real-time updates
+      const unsubscribe = onSnapshot(q, async (querySnapshot) => {
+        const topicsData: TrendingTopic[] = [];
+        
+        for (const docSnapshot of querySnapshot.docs) {
+          const data = docSnapshot.data();
+          
+          // Get channel info
+          let channelName = 'Unknown Channel';
+          try {
+            const channelDoc = await getDoc(doc(db, 'channels', data.channelId));
+            if (channelDoc.exists()) {
+              channelName = channelDoc.data().name;
+            }
+          } catch (error) {
+            console.error('Error fetching channel:', error);
+          }
+          
+          topicsData.push({
+            id: docSnapshot.id,
+            content: data.content,
+            channelId: data.channelId,
+            channelName: channelName,
+            authorId: data.authorId,
+            authorName: data.authorName,
+            createdAt: data.createdAt?.toDate() || new Date(),
+            messageCount: Math.floor(Math.random() * 100) + 10, // This would ideally be a real count
+          });
+        }
+        
+        setTrendingTopics(topicsData);
+      });
+      
+      return unsubscribe;
+    } catch (error) {
+      console.error('Error fetching trending topics:', error);
+      return () => {};
+    }
+  }, [user]);
+
+  // Fetch suggested communities
+  const fetchSuggestedCommunities = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      // Get popular channels based on member count
+      const q = query(
+        collection(db, 'channels'),
+        where('isPublic', '==', true),
+        orderBy('members', 'desc'),
+        limit(3)
+      );
+      
+      // Use onSnapshot for real-time updates
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const communitiesData: Channel[] = [];
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          communitiesData.push({
+            id: doc.id,
+            name: data.name,
+            description: data.description,
+            isPublic: data.isPublic,
+            createdBy: data.createdBy,
+            createdAt: data.createdAt?.toDate() || new Date(),
+            members: data.members || [],
+            admins: data.admins || [],
+            imageUrl: data.imageUrl || null,
+            inviteCode: data.inviteCode || null,
+          });
+        });
+        
+        setSuggestedCommunities(communitiesData);
+      });
+      
+      return unsubscribe;
+    } catch (error) {
+      console.error('Error fetching suggested communities:', error);
+      return () => {};
+    }
+  }, [user]);
+
+  // Initialize data fetching
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     } else if (user) {
-      fetchData();
+      const unsubscribeChannels = fetchChannels();
+      const unsubscribeUsers = fetchUsers();
+      const unsubscribeTrending = fetchTrendingTopics();
+      const unsubscribeSuggested = fetchSuggestedCommunities();
+      
+      // Cleanup subscriptions
+      return () => {
+        unsubscribeChannels.then(unsub => unsub());
+        unsubscribeUsers.then(unsub => unsub());
+        unsubscribeTrending.then(unsub => unsub());
+        unsubscribeSuggested.then(unsub => unsub());
+      };
     }
-  }, [user, loading, router, activeTab, fetchData]);
+  }, [user, loading, router, fetchChannels, fetchUsers, fetchTrendingTopics, fetchSuggestedCommunities]);
+
+  // Handle search in real-time
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredChannels(channels);
+      setFilteredUsers(users);
+      return;
+    }
+    
+    const query = searchQuery.toLowerCase();
+    
+    // Filter channels
+    const matchedChannels = channels.filter(channel => 
+      channel.name.toLowerCase().includes(query) || 
+      (channel.description && channel.description.toLowerCase().includes(query))
+    );
+    setFilteredChannels(matchedChannels);
+    
+    // Filter users
+    const matchedUsers = users.filter(user => 
+      user.displayName.toLowerCase().includes(query) || 
+      (user.bio && user.bio.toLowerCase().includes(query))
+    );
+    setFilteredUsers(matchedUsers);
+  }, [searchQuery, channels, users]);
 
   const loadMore = async () => {
     if (!user || !lastVisible || !hasMore) return;
@@ -186,37 +340,7 @@ export default function Discover() {
         });
         
         setChannels([...channels, ...channelData]);
-        setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
-        setHasMore(querySnapshot.docs.length === 10);
-        
-      } else if (activeTab === 'posts') {
-        q = query(
-          collection(db, 'posts'),
-          orderBy('createdAt', 'desc'),
-          startAfter(lastVisible),
-          limit(10)
-        );
-        
-        const querySnapshot = await getDocs(q);
-        const postData: Post[] = [];
-        
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          postData.push({
-            id: doc.id,
-            content: data.content,
-            authorId: data.authorId,
-            authorName: data.authorName,
-            authorPhotoURL: data.authorPhotoURL || null,
-            channelId: data.channelId,
-            createdAt: data.createdAt?.toDate() || new Date(),
-            likes: data.likes || [],
-            comments: data.comments || [],
-            imageUrl: data.imageUrl || null,
-          });
-        });
-        
-        setPosts([...posts, ...postData]);
+        setFilteredChannels([...filteredChannels, ...channelData]);
         setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
         setHasMore(querySnapshot.docs.length === 10);
         
@@ -235,13 +359,16 @@ export default function Discover() {
           const data = doc.data();
           userData.push({
             id: doc.id,
+            uid: doc.id,
             displayName: data.displayName || 'Anonymous',
             photoURL: data.photoURL || null,
             bio: data.bio || '',
+            email: data.email || '',
           });
         });
         
         setUsers([...users, ...userData]);
+        setFilteredUsers([...filteredUsers, ...userData]);
         setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
         setHasMore(querySnapshot.docs.length === 10);
       }
@@ -252,11 +379,35 @@ export default function Discover() {
     }
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Implement search functionality
-    console.log('Searching for:', searchQuery);
-    // This would typically filter the current data or make a new query
+  // Handle user profile popup
+  const handleUserClick = async (userId: string, event: React.MouseEvent) => {
+    event.preventDefault();
+    
+    try {
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setSelectedUser({
+          id: userId,
+          uid: userId,
+          displayName: userData.displayName || 'Anonymous',
+          photoURL: userData.photoURL || null,
+          bio: userData.bio || '',
+          email: userData.email || '',
+        });
+        
+        // Position the popup near the click
+        const rect = (event.target as HTMLElement).getBoundingClientRect();
+        setProfilePosition({
+          top: rect.bottom + window.scrollY + 10,
+          left: rect.left + window.scrollX,
+        });
+        
+        setShowProfile(true);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
   };
 
   if (loading) {
@@ -281,28 +432,22 @@ export default function Discover() {
               Discover
             </h1>
             <p className="text-gray-600 mt-1">
-              Explore channels, posts, and people in the Philly community
+              Explore channels and people in the Philly community
             </p>
           </div>
 
           {/* Search Bar */}
           <div className="mb-6">
-            <form onSubmit={handleSearch} className="relative">
+            <div className="relative">
               <input
                 type="text"
-                placeholder="Search for channels, posts, or users..."
+                placeholder="Search for channels or users..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full p-3 pl-10 pr-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#004C54]"
               />
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <button
-                type="submit"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#004C54] text-white px-4 py-1 rounded-md hover:bg-[#003940] transition-colors"
-              >
-                Search
-              </button>
-            </form>
+            </div>
           </div>
 
           {/* Tabs */}
@@ -317,16 +462,6 @@ export default function Discover() {
                 }`}
               >
                 Channels
-              </button>
-              <button
-                onClick={() => setActiveTab('posts')}
-                className={`px-4 py-2 font-medium text-sm sm:text-base rounded-t-lg ${
-                  activeTab === 'posts'
-                    ? 'bg-white text-[#004C54] border-t border-l border-r border-gray-200'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Posts
               </button>
               <button
                 onClick={() => setActiveTab('users')}
@@ -357,9 +492,9 @@ export default function Discover() {
                       <h2 className="text-lg font-semibold text-[#004C54]">Popular Channels</h2>
                     </div>
                     
-                    {channels.length > 0 ? (
+                    {filteredChannels.length > 0 ? (
                       <div className="divide-y divide-gray-100">
-                        {channels.map((channel) => (
+                        {filteredChannels.map((channel) => (
                           <div key={channel.id} className="p-4 hover:bg-gray-50 transition-colors">
                             <div className="flex items-center">
                               {channel.imageUrl ? (
@@ -420,81 +555,6 @@ export default function Discover() {
                   </motion.div>
                 )}
 
-                {activeTab === 'posts' && (
-                  <motion.div
-                    key="posts"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="bg-white rounded-xl shadow-md overflow-hidden"
-                  >
-                    <div className="p-4 border-b border-gray-100">
-                      <h2 className="text-lg font-semibold text-[#004C54]">Popular Posts</h2>
-                    </div>
-                    
-                    {posts.length > 0 ? (
-                      <div className="divide-y divide-gray-100">
-                        {posts.map((post) => (
-                          <div key={post.id} className="p-4 hover:bg-gray-50 transition-colors">
-                            <div className="flex items-start">
-                              {post.authorPhotoURL ? (
-                                <div className="relative w-10 h-10 rounded-full overflow-hidden mr-3 flex-shrink-0">
-                                  <Image
-                                    src={post.authorPhotoURL}
-                                    alt={post.authorName}
-                                    fill
-                                    sizes="40px"
-                                    className="object-cover"
-                                  />
-                                </div>
-                              ) : (
-                                <div className="w-10 h-10 bg-[#004C54] text-white rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                                  {post.authorName.charAt(0).toUpperCase()}
-                                </div>
-                              )}
-                              <div className="flex-1">
-                                <div className="flex justify-between items-center mb-1">
-                                  <h3 className="font-medium text-gray-800">{post.authorName}</h3>
-                                  <span className="text-xs text-gray-500">
-                                    {new Date(post.createdAt).toLocaleDateString()}
-                                  </span>
-                                </div>
-                                <p className="text-gray-700 line-clamp-2">{post.content}</p>
-                                <div className="mt-2 flex items-center text-xs text-gray-500">
-                                  <span className="mr-4">{post.likes.length} likes</span>
-                                  <span>{post.comments.length} comments</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="p-8 text-center text-gray-500">
-                        {isLoading ? (
-                          <div className="flex justify-center">
-                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#004C54]"></div>
-                          </div>
-                        ) : (
-                          <p>No posts found</p>
-                        )}
-                      </div>
-                    )}
-                    
-                    {hasMore && (
-                      <div className="p-4 border-t border-gray-100 text-center">
-                        <button
-                          onClick={loadMore}
-                          disabled={isLoading}
-                          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors disabled:opacity-50"
-                        >
-                          {isLoading ? 'Loading...' : 'Load More'}
-                        </button>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-
                 {activeTab === 'users' && (
                   <motion.div
                     key="users"
@@ -507,34 +567,32 @@ export default function Discover() {
                       <h2 className="text-lg font-semibold text-[#004C54]">People to Follow</h2>
                     </div>
                     
-                    {users.length > 0 ? (
+                    {filteredUsers.length > 0 ? (
                       <div className="divide-y divide-gray-100">
-                        {users.map((user) => (
-                          <div key={user.id} className="p-4 hover:bg-gray-50 transition-colors">
+                        {filteredUsers.map((userProfile) => (
+                          <div key={userProfile.id} className="p-4 hover:bg-gray-50 transition-colors">
                             <div className="flex items-center">
-                              {user.photoURL ? (
-                                <div className="relative w-12 h-12 rounded-full overflow-hidden mr-4 flex-shrink-0">
-                                  <Image
-                                    src={user.photoURL}
-                                    alt={user.displayName}
-                                    fill
-                                    sizes="48px"
-                                    className="object-cover"
-                                  />
-                                </div>
-                              ) : (
-                                <div className="w-12 h-12 bg-[#004C54] text-white rounded-full flex items-center justify-center mr-4 flex-shrink-0">
-                                  {user.displayName.charAt(0).toUpperCase()}
-                                </div>
-                              )}
+                              <div className="mr-4 flex-shrink-0">
+                                <UserAvatar 
+                                  userId={userProfile.id}
+                                  displayName={userProfile.displayName}
+                                  photoURL={userProfile.photoURL || undefined}
+                                  size={48}
+                                  showStatus={true}
+                                />
+                              </div>
                               <div className="flex-1">
-                                <h3 className="font-medium text-gray-800">{user.displayName}</h3>
-                                {user.bio && (
-                                  <p className="text-sm text-gray-500 line-clamp-1">{user.bio}</p>
+                                <UserProfileLink 
+                                  userId={userProfile.id}
+                                  displayName={userProfile.displayName}
+                                  className="font-medium text-gray-800"
+                                />
+                                {userProfile.bio && (
+                                  <p className="text-sm text-gray-500 line-clamp-1">{userProfile.bio}</p>
                                 )}
                               </div>
                               <Link
-                                href={`/profile/${user.id}`}
+                                href={`/profile/${userProfile.id}`}
                                 className="ml-4 px-3 py-1 bg-[#004C54] text-white text-sm rounded-md hover:bg-[#003940] transition-colors"
                               >
                                 View
@@ -579,17 +637,40 @@ export default function Discover() {
                   <h2 className="text-lg font-semibold text-[#004C54]">Trending Topics</h2>
                 </div>
                 <div className="p-4">
-                  <ul className="space-y-3">
-                    {trendingTopics.map((topic, index) => (
-                      <li key={index} className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <FaHashtag className="text-[#004C54] mr-2" />
-                          <span className="text-gray-800">{topic.name}</span>
-                        </div>
-                        <span className="text-xs text-gray-500">{topic.count} posts</span>
-                      </li>
-                    ))}
-                  </ul>
+                  {trendingTopics.length > 0 ? (
+                    <ul className="space-y-4">
+                      {trendingTopics.map((topic) => (
+                        <li key={topic.id} className="border-b border-gray-100 pb-3 last:border-b-0 last:pb-0">
+                          <div className="flex items-start mb-2">
+                            <FaComment className="text-[#004C54] mr-2 mt-1 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm text-gray-800 line-clamp-2">{topic.content}</p>
+                              <div className="flex items-center mt-1">
+                                <span className="text-xs text-[#004C54] font-medium mr-2">
+                                  {topic.channelName}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {topic.messageCount} messages
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center text-xs">
+                            <span className="text-gray-500 mr-1">Posted by</span>
+                            <UserProfileLink 
+                              userId={topic.authorId}
+                              displayName={topic.authorName}
+                              className="text-xs"
+                            />
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="text-center py-4 text-gray-500">
+                      <p>No trending topics found</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -599,41 +680,57 @@ export default function Discover() {
                   <h2 className="text-lg font-semibold text-[#004C54]">Suggested For You</h2>
                 </div>
                 <div className="p-4">
-                  <div className="space-y-4">
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 bg-[#046A38] text-white rounded-full flex items-center justify-center mr-3">
-                        <FaUsers size={16} />
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-gray-800">Philly Sports Fans</h3>
-                        <p className="text-xs text-gray-500">1,245 members</p>
-                      </div>
+                  {suggestedCommunities.length > 0 ? (
+                    <div className="space-y-4">
+                      {suggestedCommunities.map((community) => (
+                        <div key={community.id} className="flex items-center">
+                          {community.imageUrl ? (
+                            <div className="relative w-10 h-10 rounded-full overflow-hidden mr-3 flex-shrink-0">
+                              <Image
+                                src={community.imageUrl}
+                                alt={community.name}
+                                fill
+                                sizes="40px"
+                                className="object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-10 h-10 bg-[#046A38] text-white rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                              <FaUsers size={16} />
+                            </div>
+                          )}
+                          <div>
+                            <Link 
+                              href={`/dashboard?channel=${community.id}`}
+                              className="font-medium text-gray-800 hover:text-[#004C54] transition-colors"
+                            >
+                              {community.name}
+                            </Link>
+                            <p className="text-xs text-gray-500">{community.members.length} members</p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 bg-[#046A38] text-white rounded-full flex items-center justify-center mr-3">
-                        <FaUsers size={16} />
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-gray-800">Philly Foodies</h3>
-                        <p className="text-xs text-gray-500">987 members</p>
-                      </div>
+                  ) : (
+                    <div className="text-center py-4 text-gray-500">
+                      <p>No suggestions available</p>
                     </div>
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 bg-[#046A38] text-white rounded-full flex items-center justify-center mr-3">
-                        <FaUsers size={16} />
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-gray-800">Center City Events</h3>
-                        <p className="text-xs text-gray-500">756 members</p>
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         </main>
       </div>
+
+      {/* User Mini Profile Popup */}
+      {showProfile && selectedUser && (
+        <UserMiniProfile
+          user={selectedUser}
+          onClose={() => setShowProfile(false)}
+          position={profilePosition}
+        />
+      )}
     </div>
   );
 }

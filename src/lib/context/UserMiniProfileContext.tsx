@@ -1,7 +1,7 @@
 'use client';
 import React, { createContext, useContext, ReactNode } from 'react';
 import useUserMiniProfile from '@/lib/hooks/useUserMiniProfile';
-import UserMiniProfile from '@/components/UserMiniProfile';
+import UserMiniProfile from '@/components/Profile/UserMiniProfile';
 
 interface UserMiniProfileContextType {
   openProfile: (userId: string, event: React.MouseEvent) => Promise<void>;
