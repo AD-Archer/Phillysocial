@@ -1,13 +1,14 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FaUsers, FaCog, FaKey, FaLock, FaGlobe, FaTrash, FaEdit, FaUserShield, FaRandom, FaCalendarAlt } from 'react-icons/fa';
+import { FaUsers, FaCog, FaKey, FaLock, FaGlobe, FaTrash, FaEdit, FaUserShield, FaRandom, FaCalendarAlt, FaBan } from 'react-icons/fa';
 import { Channel } from '@/types/Channel';
 import { useAuth } from '@/lib/context/AuthContext';
-import ManageChannelMembersModal from '../../models/ManageChannelMembersModal';
-import EditChannelModal from '../../models/EditChannelModal';
+import ManageChannelMembersModal from '@/models/ManageChannelMembersModal';
+import EditChannelModal from '@/models/EditChannelModal';
+import BannedUsersModal from '@/models/BannedUsersModal';
 import { doc, updateDoc, deleteDoc, } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
-import { useToast } from '../../layouts/Toast';
+import { useToast } from '@/layouts/Toast';
 import { useRouter } from 'next/navigation';
 
 interface ChannelManagementPanelProps {
@@ -29,6 +30,7 @@ const ChannelManagementPanel: React.FC<ChannelManagementPanelProps> = ({
   const [isUpdating, setIsUpdating] = useState(false);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [inviteCodeExpiry, setInviteCodeExpiry] = useState<string>('');
+  const [showBannedUsersModal, setShowBannedUsersModal] = useState(false);
   const { user } = useAuth();
   const { showToast } = useToast();
   const router = useRouter();
@@ -224,11 +226,21 @@ const ChannelManagementPanel: React.FC<ChannelManagementPanelProps> = ({
             
             <button
               onClick={() => setShowMembersModal(true)}
-              className="w-full flex items-center justify-center px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940]"
+              className="w-full flex items-center justify-center px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940] mb-3"
             >
               <FaUserShield className="mr-2" />
               {isUserAdmin() ? 'Manage Members' : 'View Members'}
             </button>
+
+            {isUserAdmin() && (
+              <button
+                onClick={() => setShowBannedUsersModal(true)}
+                className="w-full flex items-center justify-center px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+              >
+                <FaBan className="mr-2" />
+                Manage Banned Users {channel.bannedUsers && channel.bannedUsers.length > 0 ? `(${channel.bannedUsers.length})` : ''}
+              </button>
+            )}
           </div>
           
           <div className="mb-4">
@@ -249,7 +261,7 @@ const ChannelManagementPanel: React.FC<ChannelManagementPanelProps> = ({
                 </div>
               )}
               {channel.bannedUsers && (
-                <div className="flex justify-between">
+                <div className="flex justify-between mb-2">
                   <span className="text-sm text-gray-600">Banned Users:</span>
                   <span className="text-sm font-medium">{channel.bannedUsers.length}</span>
                 </div>
@@ -380,6 +392,14 @@ const ChannelManagementPanel: React.FC<ChannelManagementPanelProps> = ({
         <ManageChannelMembersModal
           channel={channel}
           onClose={() => setShowMembersModal(false)}
+          onUpdate={onUpdate}
+        />
+      )}
+      
+      {showBannedUsersModal && (
+        <BannedUsersModal
+          channel={channel}
+          onClose={() => setShowBannedUsersModal(false)}
           onUpdate={onUpdate}
         />
       )}

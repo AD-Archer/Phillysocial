@@ -23,15 +23,15 @@ export default function About() {
       name: "Sianni Strickland",
       role: "Co-Founder, and Managering Lead",
       image: "https://2ad5tl9u0f.ufs.sh/f/mVlrptEB35zZRu9boXVrI1y2gHJMVozdtwNDuO6Ev3qPksnc",
-      github: "https://github.com/siannistrickland",
-      linkedin: "https://www.linkedin.com/in/sianni-strickland-934059284/",
+      github: "https://github.com/SunnySianni",
+      linkedin: "https://www.linkedin.com/in/sianni-strickland-934059284//",
     },
     {
       name: "Bryan Gunawan",
       role: "Co-Founder, and Overseeing Developer",
       image: "https://2ad5tl9u0f.ufs.sh/f/mVlrptEB35zZjuXP5PB6AkuVRtqlLTQdpOHJ5GXICY9z3M2n",
-      github: "https://github.com/bryangunawan",
-      linkedin: "https://linkedin.com/in/bryangunawan",
+      github: "https://github.com/ManINeedToSleep",
+      linkedin: "https://www.linkedin.com/in/bryan-gunawan-a537132b9/",
     },
   ]
 

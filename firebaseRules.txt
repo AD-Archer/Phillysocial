@@ -99,6 +99,33 @@ service cloud.firestore {
         resource.data.createdBy == request.auth.uid || 
         resource.data.admins.hasAny([request.auth.uid])
       );
+      
+      // Ban history subcollection rules
+      match /banHistory/{banId} {
+        // Allow read if user is authenticated and is a channel admin or in debug mode
+        allow read: if isAuthenticated() && (
+          isDebugMode() ||
+          isChannelAdmin(channelId)
+        );
+        
+        // Allow create if user is authenticated and is a channel admin or in debug mode
+        allow create: if isAuthenticated() && (
+          isDebugMode() ||
+          isChannelAdmin(channelId)
+        );
+        
+        // Allow update if user is authenticated and is a channel admin or in debug mode
+        allow update: if isAuthenticated() && (
+          isDebugMode() ||
+          isChannelAdmin(channelId)
+        );
+        
+        // Allow delete if user is authenticated and is a channel admin or in debug mode
+        allow delete: if isAuthenticated() && (
+          isDebugMode() ||
+          isChannelAdmin(channelId)
+        );
+      }
     }
     
     // Channel messages rules

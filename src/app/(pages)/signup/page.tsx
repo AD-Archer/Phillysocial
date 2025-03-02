@@ -5,6 +5,9 @@ import Image from 'next/image';
 import { signUp, signInWithGoogle } from '@lib/auth';
 import { useRouter } from 'next/navigation';
 import MainLayout from '@/layouts/MainLayout';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebaseConfig';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export default function SignUp() {
   const router = useRouter();
@@ -24,12 +27,53 @@ export default function SignUp() {
         throw new Error('All fields are required.');
       }
 
-      await signUp(email, password);
-      router.push('/dashboard');
+      // Check if a user with this email already exists in Firestore
+      try {
+        console.log('Checking if email already exists:', email);
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('email', '==', email));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          console.log('Email already in use');
+          throw new Error('Email already in use. Please sign in instead.');
+        }
+      } catch (error) {
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error('Error checking email availability.');
+      }
+
+      console.log('Creating new user with email:', email);
+      const userCredential = await signUp(email, password);
+      
+      // Create initial user document with name but incomplete profile
+      try {
+        await setDoc(doc(db, 'users', userCredential.uid), {
+          displayName: name,
+          email: userCredential.email,
+          photoURL: '',
+          bio: '',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          status: 'online',
+          role: 'member'
+        });
+        console.log('User document created successfully');
+      } catch (docError) {
+        console.error('Error creating initial user document:', docError);
+      }
+      
+      // Redirect to profile completion
+      console.log('Redirecting to profile completion');
+      router.push('/profile?complete=required');
     } catch (err: unknown) {
       if (err instanceof Error) {
+        console.error('Signup error:', err.message);
         setError(err.message);
       } else {
+        console.error('Unknown signup error');
         setError('Failed to sign up. Please try again.');
       }
     } finally {
@@ -42,12 +86,59 @@ export default function SignUp() {
     setLoading(true);
 
     try {
-      await signInWithGoogle();
-      router.push('/dashboard');
+      const userCredential = await signInWithGoogle();
+      console.log('Google sign-in successful, checking if user exists:', userCredential.uid);
+      
+      // Check if user document already exists
+      try {
+        const userRef = doc(db, 'users', userCredential.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (userDoc.exists()) {
+          console.log('User already exists, checking profile completion');
+          // User already exists, check if profile is complete
+          const userData = userDoc.data();
+          const isProfileComplete = Boolean(
+            userData.displayName && 
+            userData.bio && 
+            userData.bio.trim().length > 0
+          );
+          
+          if (isProfileComplete) {
+            console.log('Profile is complete, redirecting to dashboard');
+            router.push('/dashboard');
+          } else {
+            console.log('Profile is incomplete, redirecting to profile completion');
+            router.push('/profile?complete=required');
+          }
+        } else {
+          console.log('New user, creating document');
+          // New user, create document
+          await setDoc(userRef, {
+            displayName: userCredential.displayName || '',
+            email: userCredential.email,
+            photoURL: userCredential.photoURL || '',
+            bio: '',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            status: 'online',
+            role: 'member'
+          });
+          
+          // Redirect to profile completion
+          console.log('Redirecting new user to profile completion');
+          router.push('/profile?complete=required');
+        }
+      } catch (docError) {
+        console.error('Error checking/creating user document:', docError);
+        throw docError;
+      }
     } catch (err: unknown) {
       if (err instanceof Error) {
+        console.error('Google sign-up error:', err.message);
         setError(err.message);
       } else {
+        console.error('Unknown Google sign-up error');
         setError('Failed to sign in with Google.');
       }
     } finally {

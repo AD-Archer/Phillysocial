@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, orderBy, limit, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
-import { Post } from '@/types/Post';
+import { Post, Comment } from '@/types/Post';
 import { Channel } from '@/types/Channel';
 import PostCard from './PostCard';
 import CreatePostForm from './CreatePostForm';
@@ -93,6 +93,45 @@ const PostList: React.FC<PostListProps> = ({ channelId }) => {
             const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
             const lastEdited = data.lastEdited?.toDate ? data.lastEdited.toDate() : undefined;
             
+            // Define a recursive type for comment data from Firestore
+            type FirestoreCommentData = {
+              id: string;
+              content: string;
+              authorId: string;
+              authorName: string;
+              authorPhotoURL?: string;
+              createdAt: { toDate?: () => Date } | Date;
+              parentId?: string;
+              replies?: FirestoreCommentData[];
+            };
+
+            // Process comments to ensure dates are properly converted
+            const processComments = (comments: FirestoreCommentData[]): Comment[] => {
+              return comments.map(comment => {
+                // Process this comment
+                const processedComment = {
+                  id: comment.id,
+                  content: comment.content,
+                  authorId: comment.authorId,
+                  authorName: comment.authorName,
+                  authorPhotoURL: comment.authorPhotoURL,
+                  parentId: comment.parentId,
+                  createdAt: comment.createdAt && typeof comment.createdAt === 'object' && 'toDate' in comment.createdAt && typeof comment.createdAt.toDate === 'function'
+                    ? comment.createdAt.toDate()
+                    : comment.createdAt instanceof Date ? comment.createdAt : new Date()
+                } as Comment;
+                
+                // Process nested replies if they exist
+                if (Array.isArray(comment.replies) && comment.replies.length > 0) {
+                  processedComment.replies = processComments(comment.replies);
+                }
+                
+                return processedComment;
+              });
+            };
+            
+            const processedComments = processComments(data.comments || []);
+            
             fetchedPosts.push({
               id: doc.id,
               content: data.content || '',
@@ -103,7 +142,7 @@ const PostList: React.FC<PostListProps> = ({ channelId }) => {
               createdAt: createdAt,
               lastEdited: lastEdited,
               likes: data.likes || [],
-              comments: data.comments || [],
+              comments: processedComments,
               imageUrl: data.imageUrl
             });
           });
@@ -207,11 +246,11 @@ const PostList: React.FC<PostListProps> = ({ channelId }) => {
         </div>
       ) : (
         <div className="space-y-4">
-          {posts.map(post => (
+          {posts.map((post, index) => (
             <PostCard 
-              key={post.id} 
-              post={post} 
-              channel={channel ? { admins: channel.admins } : undefined} 
+              key={`${post.id}-${index}`}
+              post={post}
+              channel={channel ? { admins: channel.admins } : undefined}
               onPostDeleted={handlePostDeleted}
               onPostEdited={handlePostEdited}
             />

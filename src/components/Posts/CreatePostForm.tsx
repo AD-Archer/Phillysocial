@@ -56,18 +56,22 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ channelId, onPostCreate
     setError(null);
     
     try {
+      // Use Firestore user data if available, fallback to Firebase user data
+      const displayName = user.firestoreData?.displayName || user.displayName || 'Anonymous';
+      const photoURL = user.firestoreData?.photoURL || user.photoURL || '';
+      
       const postData: PostData = {
         content,
         channelId,
         authorId: user.uid,
-        authorName: user.displayName || 'Anonymous',
+        authorName: displayName,
         createdAt: serverTimestamp(),
         likes: [],
         comments: [] as Comment[],
       };
 
-      if (user.photoURL) {
-        postData.authorPhotoURL = user.photoURL;
+      if (photoURL) {
+        postData.authorPhotoURL = photoURL;
       }
       
       const docRef = await addDoc(collection(db, 'posts'), postData);

@@ -4,6 +4,8 @@ import "./globals.css";
 import { AuthProvider } from '@lib/context/AuthContext';
 import { ToastProvider } from '@/layouts/Toast';
 import ClientLayout from './ClientLayout';
+import { ProfileCompletionProvider } from '@/lib/context/ProfileCompletionContext';
+import UserMiniProfileProvider from '@/lib/context/UserMiniProfileContext';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -47,9 +49,13 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#e6f0f0]`}
       >
         <AuthProvider>
-          <ToastProvider>
-            <ClientLayout>{children}</ClientLayout>
-          </ToastProvider>
+          <ProfileCompletionProvider>
+            <ToastProvider>
+              <UserMiniProfileProvider>
+                <ClientLayout>{children}</ClientLayout>
+              </UserMiniProfileProvider>
+            </ToastProvider>
+          </ProfileCompletionProvider>
         </AuthProvider>
       </body>
     </html>
