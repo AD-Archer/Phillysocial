@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { signIn, signInWithGoogle } from '@lib/auth';
 import { useRouter } from 'next/navigation';
 import MainLayout from '@/layouts/MainLayout';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 
 export default function Login() {
@@ -14,24 +14,6 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const checkProfileCompletion = async (userId: string) => {
-    try {
-      const userDoc = await getDoc(doc(db, 'users', userId));
-      
-      if (!userDoc.exists()) return false;
-      
-      const userData = userDoc.data();
-      return Boolean(
-        userData.displayName && 
-        userData.bio && 
-        userData.bio.trim().length > 0
-      );
-    } catch (error) {
-      console.error('Error checking profile completion:', error);
-      return false;
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,20 +26,61 @@ export default function Login() {
       }
 
       const userCredential = await signIn(email, password);
+      console.log('Login successful, user:', userCredential.uid);
       
-      // Check if profile is complete
-      const isProfileComplete = await checkProfileCompletion(userCredential.uid);
-      
-      // Redirect based on profile completion status
-      if (isProfileComplete) {
-        router.push('/dashboard');
-      } else {
-        router.push('/profile?complete=required');
+      // Check if user document exists, if not create it
+      try {
+        const userRef = doc(db, 'users', userCredential.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (!userDoc.exists()) {
+          console.log('First time login, creating user document');
+          // Create user document for first-time login
+          await setDoc(userRef, {
+            displayName: userCredential.displayName || '',
+            email: userCredential.email,
+            photoURL: userCredential.photoURL || '',
+            bio: '',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            status: 'online',
+            role: 'member'
+          });
+          
+          // Redirect to profile completion for new users
+          console.log('Redirecting new user to profile completion');
+          await router.push('/profile?complete=required');
+          return;
+        }
+        
+        // Check if profile is complete
+        const userData = userDoc.data();
+        const isProfileComplete = Boolean(
+          userData.displayName && 
+          userData.bio && 
+          userData.bio.trim().length > 0
+        );
+        
+        console.log('Profile complete:', isProfileComplete);
+        
+        // Redirect based on profile completion status
+        if (isProfileComplete) {
+          console.log('Redirecting to dashboard');
+          await router.push('/dashboard');
+        } else {
+          console.log('Redirecting to profile completion');
+          await router.push('/profile?complete=required');
+        }
+      } catch (docError) {
+        console.error('Error checking/creating user document:', docError);
+        throw docError;
       }
     } catch (err: unknown) {
       if (err instanceof Error) {
+        console.error('Login error:', err.message);
         setError(err.message);
       } else {
+        console.error('Unknown login error');
         setError('Failed to sign in. Please try again.');
       }
     } finally {
@@ -71,20 +94,56 @@ export default function Login() {
 
     try {
       const userCredential = await signInWithGoogle();
+      console.log('Google login successful, user:', userCredential.uid);
       
-      // Check if profile is complete
-      const isProfileComplete = await checkProfileCompletion(userCredential.uid);
-      
-      // Redirect based on profile completion status
-      if (isProfileComplete) {
-        router.push('/dashboard');
-      } else {
-        router.push('/profile?complete=required');
+      // Check if user document exists, if not create it
+      try {
+        const userRef = doc(db, 'users', userCredential.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (!userDoc.exists()) {
+          console.log('First time Google login, creating user document');
+          // Create user document for first-time Google login
+          await setDoc(userRef, {
+            displayName: userCredential.displayName || '',
+            email: userCredential.email,
+            photoURL: userCredential.photoURL || '',
+            bio: '',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            status: 'online',
+            role: 'member'
+          });
+        }
+        
+        // Check if profile is complete
+        const userData = userDoc.exists() ? userDoc.data() : { displayName: userCredential.displayName, bio: '' };
+        const isProfileComplete = Boolean(
+          userData.displayName && 
+          userData.bio && 
+          userData.bio.trim().length > 0
+        );
+        
+        console.log('Profile complete:', isProfileComplete);
+        
+        // Redirect based on profile completion status
+        if (isProfileComplete) {
+          console.log('Redirecting to dashboard');
+          await router.push('/dashboard');
+        } else {
+          console.log('Redirecting to profile completion');
+          await router.push('/profile?complete=required');
+        }
+      } catch (docError) {
+        console.error('Error checking/creating user document:', docError);
+        throw docError;
       }
     } catch (err: unknown) {
       if (err instanceof Error) {
+        console.error('Google login error:', err.message);
         setError(err.message);
       } else {
+        console.error('Unknown Google login error');
         setError('Failed to sign in with Google.');
       }
     } finally {

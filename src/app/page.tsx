@@ -1,8 +1,21 @@
 'use client';
 import Link from 'next/link';
 import MainLayout from '@/layouts/MainLayout';
+import { useAuth } from '@/lib/context/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  const handleGetStarted = () => {
+    if (user) {
+      router.push('/dashboard');
+    } else {
+      router.push('/signup');
+    }
+  };
+
   return (
     <MainLayout>
       <div className="min-h-screen bg-gradient-to-br from-[#003038] via-[#004C54] to-[#046A38] text-white -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8">
@@ -20,12 +33,12 @@ export default function Home() {
               </p>
             </div>
             <div className="mt-12 flex items-center justify-center gap-x-6">
-              <Link 
-                href="/signup" 
+              <button 
+                onClick={handleGetStarted}
                 className="rounded-xl bg-[#A5ACAF] px-8 py-4 text-lg font-semibold text-[#003038] shadow-lg hover:bg-white hover:text-[#004C54] transition-all duration-300 hover:scale-105 focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#004C54]"
               >
-                Get Started
-              </Link>
+                {user ? 'Go to Dashboard' : 'Get Started'}
+              </button>
               <Link
                 href="/about"
                 className="text-lg font-semibold leading-6 text-[#A5ACAF] hover:text-white transition-colors duration-300 flex items-center gap-2"
@@ -66,18 +79,29 @@ export default function Home() {
                 Join our community today and start connecting with fellow Philadelphians who share your interests and passions.
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-x-6">
-                <Link
-                  href="/signup"
-                  className="rounded-xl bg-[#A5ACAF] px-8 py-4 text-lg font-semibold text-[#003038] shadow-lg hover:bg-white hover:text-[#004C54] transition-all duration-300 hover:scale-105 focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#004C54]"
-                >
-                  Create Account
-                </Link>
-                <Link
-                  href="/login"
-                  className="text-lg font-semibold leading-6 text-[#A5ACAF] hover:text-white transition-colors duration-300 flex items-center gap-2"
-                >
-                  Sign In <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-1">→</span>
-                </Link>
+                {user ? (
+                  <button
+                    onClick={() => router.push('/dashboard')}
+                    className="rounded-xl bg-[#A5ACAF] px-8 py-4 text-lg font-semibold text-[#003038] shadow-lg hover:bg-white hover:text-[#004C54] transition-all duration-300 hover:scale-105 focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#004C54]"
+                  >
+                    Go to Dashboard
+                  </button>
+                ) : (
+                  <>
+                    <Link
+                      href="/signup"
+                      className="rounded-xl bg-[#A5ACAF] px-8 py-4 text-lg font-semibold text-[#003038] shadow-lg hover:bg-white hover:text-[#004C54] transition-all duration-300 hover:scale-105 focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#004C54]"
+                    >
+                      Create Account
+                    </Link>
+                    <Link
+                      href="/login"
+                      className="text-lg font-semibold leading-6 text-[#A5ACAF] hover:text-white transition-colors duration-300 flex items-center gap-2"
+                    >
+                      Sign In <span aria-hidden="true" className="transition-transform duration-300 group-hover:translate-x-1">→</span>
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </section>

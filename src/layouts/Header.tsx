@@ -1,8 +1,10 @@
 'use client';
 import React from 'react';
-import { FaBars } from 'react-icons/fa';
+import { FaBars, FaUser } from 'react-icons/fa';
 import Image from 'next/image';
 import { useAuth } from '@/lib/context/AuthContext';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -11,12 +13,17 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick }) => {
   const { user } = useAuth();
+  const router = useRouter();
   
   // Get the profile picture URL from firestoreData if available, otherwise use the default photoURL
   const profilePicture = user?.firestoreData?.photoURL || user?.photoURL;
   // Get the display name or email for the fallback avatar
   const displayName = user?.firestoreData?.displayName || user?.displayName;
   const email = user?.firestoreData?.email || user?.email;
+
+  const handleSignInClick = () => {
+    router.push('/login');
+  };
 
   return (
     <header className="bg-[#003940] text-white p-4 shadow-lg fixed top-0 w-full z-10">
@@ -28,10 +35,12 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick }) => {
           >
             <FaBars size={24} />
           </button>
-          <h1 className="text-lg font-bold">Philly Social</h1>
+          <Link href="/" className="text-lg font-bold hover:text-[#A5ACAF] transition-colors">
+            Philly Social
+          </Link>
         </div>
         
-        {user && (
+        {user ? (
           <div className="relative">
             <button
               onClick={onProfileClick}
@@ -55,6 +64,16 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick }) => {
               <span className="hidden md:block text-white truncate max-w-[150px]">
                 {displayName || email}
               </span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleSignInClick}
+              className="flex items-center space-x-2 px-3 py-1.5 bg-[#004C54] hover:bg-[#003940] rounded-md transition-colors focus:outline-none"
+            >
+              <FaUser size={14} />
+              <span className="text-sm font-medium">Sign In</span>
             </button>
           </div>
         )}

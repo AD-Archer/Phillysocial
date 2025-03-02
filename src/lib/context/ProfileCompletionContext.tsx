@@ -67,17 +67,20 @@ export const ProfileCompletionProvider = ({ children }: ProfileCompletionProvide
       setLoading(false);
 
       // Exempt paths that should be accessible without a complete profile
-      const exemptPaths = ['/profile', '/login', '/signup', '/logout'];
+      const exemptPaths = ['/profile', '/login', '/signup', '/logout', '/'];
       const isExemptPath = exemptPaths.some(path => pathname?.startsWith(path));
+
+      console.log('ProfileCompletionContext - Path:', pathname, 'Exempt:', isExemptPath, 'Complete:', isComplete);
 
       // If profile is incomplete and user is not on an exempt path, redirect to profile
       if (!isComplete && !isExemptPath) {
+        console.log('ProfileCompletionContext - Redirecting to profile completion');
         router.push('/profile?complete=required');
       }
     };
 
     checkAndRedirect();
-  }, [user, pathname]);
+  }, [user, pathname, checkProfileCompletion, router]);
 
   return (
     <ProfileCompletionContext.Provider value={{ isProfileComplete, checkProfileCompletion, loading }}>

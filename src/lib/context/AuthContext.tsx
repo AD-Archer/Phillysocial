@@ -41,6 +41,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+      console.log('AuthContext - Auth state changed:', firebaseUser ? `User: ${firebaseUser.uid}` : 'No user');
       setUser(firebaseUser as ExtendedUser | null);
       setLoading(false);
     });
@@ -55,11 +56,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return;
     }
 
+    console.log('AuthContext - Fetching Firestore data for user:', user.uid);
     const userRef = doc(db, 'users', user.uid);
     
     // Set up real-time listener for user data
     const unsubscribe = onSnapshot(userRef, (doc) => {
       if (doc.exists()) {
+        console.log('AuthContext - Firestore user data received');
         const userData = doc.data();
         
         // Create a new user object with the Firestore data
@@ -79,8 +82,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         // Only update the user state if the extendedUser is different
         if (JSON.stringify(extendedUser) !== JSON.stringify(user)) {
+          console.log('AuthContext - Updating user with Firestore data');
           setUser(extendedUser);
         }
+      } else {
+        console.log('AuthContext - No Firestore document exists for user:', user.uid);
       }
       
       setFirestoreLoading(false);
@@ -90,7 +96,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
 
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [user]);
 
   return (
     <AuthContext.Provider value={{ user, loading, firestoreLoading }}>

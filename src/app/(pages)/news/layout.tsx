@@ -1,11 +1,12 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/context/AuthContext';
 import { auth } from '@/lib/firebaseConfig';
 import { signOut } from 'firebase/auth';
 import Header from '@/layouts/Header';
 import Sidebar from '@/layouts/Sidebar';
+import Link from 'next/link';
 
 export default function NewsLayout({
   children,
@@ -16,12 +17,7 @@ export default function NewsLayout({
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(true);
 
   const handleSignOut = async () => {
     try {
@@ -40,10 +36,6 @@ export default function NewsLayout({
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Header 
@@ -53,8 +45,8 @@ export default function NewsLayout({
       
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-      {/* Profile Dropdown */}
-      {isProfileOpen && (
+      {/* Profile Dropdown - Only show if user is logged in */}
+      {isProfileOpen && user && (
         <div className="absolute right-4 top-16 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
           <div className="py-1">
             <button
@@ -63,6 +55,36 @@ export default function NewsLayout({
             >
               Sign Out
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Login/Register prompt for non-authenticated users */}
+      {!user && showLoginPrompt && (
+        <div className="fixed top-16 right-4 mt-2 p-4 bg-white rounded-md shadow-lg z-50 w-64">
+          <button 
+            onClick={() => setShowLoginPrompt(false)}
+            className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+          <p className="text-sm text-gray-700 mb-3">
+            Sign in to access all features including saving articles, commenting, and personalizing your news feed.
+          </p>
+          <div className="flex space-x-2">
+            <Link 
+              href="/login" 
+              className="flex-1 px-4 py-2 bg-[#004C54] text-white text-sm font-medium rounded-md text-center hover:bg-[#003940] transition-colors"
+            >
+              Sign In
+            </Link>
+            <Link 
+              href="/register" 
+              className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md text-center hover:bg-gray-200 transition-colors"
+            >
+              Register
+            </Link>
           </div>
         </div>
       )}

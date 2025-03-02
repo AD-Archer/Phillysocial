@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { FaNewspaper, FaUsers, FaUser, FaStream, FaTimes } from 'react-icons/fa';
+import { FaNewspaper, FaUser, FaStream, FaTimes } from 'react-icons/fa';
 import { useEffect } from 'react';
 
 interface SidebarProps {
@@ -12,7 +12,6 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
   const menuItems = [
     { icon: FaStream, label: 'Social Feed', href: '/dashboard' },
     { icon: FaNewspaper, label: 'News Feed', href: '/news' },
-    { icon: FaUsers, label: 'Recommended', href: '/recommended' },
     { icon: FaUser, label: 'Profile', href: '/profile' },
   ];
 
