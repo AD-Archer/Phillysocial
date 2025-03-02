@@ -1,12 +1,12 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import { FaTimes, FaCamera, FaSpinner, FaCheck, FaTrash, FaInfoCircle, FaLink } from 'react-icons/fa';
+import { FaTimes, FaSpinner, FaCheck, FaTrash, FaInfoCircle, FaLink } from 'react-icons/fa';
 import Image from 'next/image';
 import { useAuth } from '@/lib/context/AuthContext';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useToast } from '@/layouts/Toast';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, deleteObject } from 'firebase/storage';
 import { storage } from '@/lib/firebaseConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -33,13 +33,10 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const [bio, setBio] = useState(initialData.bio || '');
   const [photoURL, setPhotoURL] = useState(initialData.photoURL || user?.photoURL || '');
   const [isLoading, setIsLoading] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
   const [showInfoTooltip, setShowInfoTooltip] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
   // Close modal when clicking outside
@@ -77,25 +74,10 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
       setDisplayName(initialData.displayName || user?.displayName || '');
       setBio(initialData.bio || '');
       setPhotoURL(initialData.photoURL || user?.photoURL || '');
-      setImageFile(null);
       setImagePreview(null);
       setImageUrl('');
     }
   }, [isOpen, initialData, user]);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleRemovePhoto = async () => {
     if (!user) return;
@@ -131,7 +113,6 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
       }, { merge: true });
       
       setPhotoURL('');
-      setImageFile(null);
       setImagePreview(null);
       
       showToast('Profile photo removed', 'success');
@@ -143,31 +124,6 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
     }
   };
 
-  const uploadProfileImage = async (): Promise<string | null> => {
-    if (!imageFile || !user) return null;
-    
-    setIsUploading(true);
-    
-    try {
-      const fileExtension = imageFile.name.split('.').pop();
-      const fileName = `profile-${user.uid}-${Date.now()}.${fileExtension}`;
-      const storageRef = ref(storage, `profile_images/${fileName}`);
-      
-      // Upload the file
-      await uploadBytes(storageRef, imageFile);
-      
-      // Get download URL
-      const downloadURL = await getDownloadURL(storageRef);
-      return downloadURL;
-    } catch (error) {
-      console.error('Error uploading profile image:', error);
-      showToast('Failed to upload profile image', 'error');
-      return null;
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
   const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setImageUrl(e.target.value);
   };
@@ -175,7 +131,6 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const handleApplyImageUrl = () => {
     if (imageUrl.trim()) {
       setImagePreview(imageUrl);
-      setImageFile(null);
       showToast('Image URL applied. Save changes to update your profile.', 'info');
     } else {
       showToast('Please enter a valid image URL', 'warning');
@@ -191,13 +146,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
     try {
       let updatedPhotoURL = photoURL;
       
-      // Upload new image if selected
-      if (imageFile) {
-        const newPhotoURL = await uploadProfileImage();
-        if (newPhotoURL) {
-          updatedPhotoURL = newPhotoURL;
-        }
-      } else if (imagePreview && imagePreview !== photoURL) {
+      if (imagePreview && imagePreview !== photoURL) {
         // If using an image URL and it's different from the current photoURL
         updatedPhotoURL = imagePreview;
       }
@@ -257,7 +206,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
       <AnimatePresence>
         <motion.div
           ref={modalRef}
-          className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col"
+          className="bg-white rounded-lg shadow-xl w-full max-h-[90vh] flex flex-col md:max-w-lg"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.9 }}
@@ -276,52 +225,31 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
           
           <div className="p-6 overflow-y-auto">
             <form onSubmit={handleSubmit}>
-              {/* Profile Photo */}
+              {/* Profile Photo Section */}
               <div className="flex flex-col items-center mb-6">
                 <div className="relative mb-4">
-                  <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-[#004C54] relative">
+                  <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-4 border-[#004C54] relative">
                     {(imagePreview || photoURL) ? (
                       <Image 
                         src={imagePreview || photoURL} 
                         alt="Profile Preview" 
                         fill
-                        sizes="96px"
+                        sizes="(max-width: 768px) 96px, 128px"
                         className="object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full bg-[#004C54] text-white flex items-center justify-center text-3xl">
+                      <div className="w-full h-full bg-[#004C54] text-white flex items-center justify-center text-3xl md:text-4xl">
                         {displayName ? displayName.charAt(0).toUpperCase() : 'U'}
                       </div>
                     )}
                   </div>
-                  
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute bottom-0 right-0 bg-[#004C54] text-white p-2 rounded-full hover:bg-[#003940] transition-colors"
-                    disabled={isUploading}
-                  >
-                    {isUploading ? (
-                      <FaSpinner className="animate-spin" />
-                    ) : (
-                      <FaCamera />
-                    )}
-                  </button>
                 </div>
-                
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  accept="image/*"
-                  className="hidden"
-                />
                 
                 {(photoURL || imagePreview) && (
                   <button
                     type="button"
                     onClick={handleRemovePhoto}
-                    className="text-red-600 text-sm flex items-center hover:text-red-700 transition-colors"
+                    className="text-red-600 text-sm flex items-center hover:text-red-700 transition-colors mb-4"
                     disabled={isRemoving}
                   >
                     {isRemoving ? (
@@ -335,7 +263,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
               </div>
               
               {/* Image URL Input */}
-              <div className="mb-4">
+              <div className="mb-6">
                 <div className="flex items-center mb-1">
                   <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700">
                     Image URL
@@ -371,7 +299,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     <FaLink className="mr-1" /> Apply
                   </button>
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Add an image from the web instead of uploading</p>
+                <p className="mt-1 text-xs text-gray-500">Add an image from the web</p>
               </div>
               
               {/* Display Name */}

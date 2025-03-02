@@ -152,13 +152,15 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick }) => {
                 >
                   <div className="w-8 h-8 rounded-full bg-[#A5ACAF] flex items-center justify-center overflow-hidden border-2 border-white shadow-md">
                     {user?.photoURL ? (
-                      <Image
-                        src={user.photoURL}
-                        alt="Profile"
-                        width={32}
-                        height={32}
-                        className="rounded-full object-cover"
-                      />
+                      <div className="relative w-full h-full">
+                        <Image
+                          src={user.photoURL}
+                          alt="Profile"
+                          fill
+                          sizes="32px"
+                          className="object-cover"
+                        />
+                      </div>
                     ) : (
                       <FaUserCircle size={24} className="text-[#003940]" />
                     )}
@@ -182,13 +184,15 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick }) => {
                         <div className="flex items-center space-x-3">
                           <div className="w-12 h-12 rounded-full bg-[#A5ACAF] flex items-center justify-center overflow-hidden border-2 border-white shadow-md">
                             {user?.photoURL ? (
-                              <Image
-                                src={user.photoURL}
-                                alt="Profile"
-                                width={48}
-                                height={48}
-                                className="rounded-full object-cover"
-                              />
+                              <div className="relative w-full h-full">
+                                <Image
+                                  src={user.photoURL}
+                                  alt="Profile"
+                                  fill
+                                  sizes="48px"
+                                  className="object-cover"
+                                />
+                              </div>
                             ) : (
                               <FaUserCircle size={36} className="text-[#003940]" />
                             )}
