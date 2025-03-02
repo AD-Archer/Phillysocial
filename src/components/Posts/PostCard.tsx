@@ -212,7 +212,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, postId, onReplyAdded
   };
 
   // Calculate left margin based on nesting level
-  const marginLeft = currentLevel > 0 ? `${currentLevel * 16}px` : '0';
+  const marginLeft = currentLevel > 0 ? `${currentLevel * 8}px` : '0';
   
   return (
     <div style={{ marginLeft }} className={`${isDeleting ? 'opacity-60 pointer-events-none' : ''}`}>
@@ -221,7 +221,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, postId, onReplyAdded
           userId={comment.authorId}
           displayName={authorInfo.name}
           photoURL={authorInfo.photoURL}
-          size={32}
+          size={28}
           className="flex-shrink-0"
         />
         <div className="flex-1 bg-gray-100 rounded-lg p-2">
@@ -230,14 +230,14 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, postId, onReplyAdded
               <UserProfileLink 
                 userId={comment.authorId}
                 displayName={authorInfo.name}
-                className="font-medium text-sm"
+                className="font-medium text-xs"
               />
               {comment.isDeleted && (
                 <span className="ml-2 text-xs text-gray-500 italic">(deleted)</span>
               )}
             </div>
             <div className="flex items-center">
-              <span className="text-xs text-gray-500 mr-2">
+              <span className="text-xs text-gray-500 mr-1 sm:mr-2">
                 {formatTimeAgo(createdAt)}
               </span>
               
@@ -248,17 +248,17 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, postId, onReplyAdded
                     onClick={() => setShowOptions(!showOptions)}
                     aria-label="Comment options"
                   >
-                    <FaEllipsisH size={12} />
+                    <FaEllipsisH size={10} />
                   </button>
                   
                   {showOptions && (
-                    <div className="absolute right-0 mt-1 w-40 bg-white rounded-md shadow-lg z-20 py-1 border border-gray-200">
+                    <div className="absolute right-0 mt-1 w-32 sm:w-40 bg-white rounded-md shadow-lg z-20 py-1 border border-gray-200">
                       <button
                         onClick={handleDeleteComment}
                         disabled={isDeleting}
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center transition-colors"
+                        className="w-full text-left px-3 py-1 sm:py-2 text-xs text-red-600 hover:bg-gray-100 flex items-center transition-colors"
                       >
-                        <FaTrash className="mr-2" size={12} />
+                        <FaTrash className="mr-2" size={10} />
                         {isDeleting ? 'Deleting...' : 'Delete comment'}
                       </button>
                     </div>
@@ -267,17 +267,17 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, postId, onReplyAdded
               )}
             </div>
           </div>
-          <p className={`text-sm mt-1 ${comment.isDeleted ? 'text-gray-500 italic' : 'text-gray-700'}`}>
+          <p className={`text-xs mt-1 ${comment.isDeleted ? 'text-gray-500 italic' : 'text-gray-700'}`}>
             {comment.content}
           </p>
           
           {user && !comment.isDeleted && (
-            <div className="mt-2 flex items-center">
+            <div className="mt-1 sm:mt-2 flex items-center">
               <button 
                 onClick={() => setShowReplyForm(!showReplyForm)}
                 className="text-xs text-gray-500 hover:text-[#004C54] flex items-center"
               >
-                <FaReply size={10} className="mr-1" />
+                <FaReply size={8} className="mr-1" />
                 {showReplyForm ? 'Cancel' : 'Reply'}
               </button>
               
@@ -295,19 +295,19 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, postId, onReplyAdded
       </div>
       
       {showReplyForm && (
-        <div className="ml-10 mt-2">
+        <div className="ml-8 mt-2">
           <form onSubmit={handleSubmitReply} className="flex space-x-2">
             <input
               type="text"
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
               placeholder="Write a reply..."
-              className="flex-1 p-2 border rounded-md text-sm focus:ring-[#004C54] focus:border-[#004C54]"
+              className="flex-1 p-1 sm:p-2 border rounded-md text-xs focus:ring-[#004C54] focus:border-[#004C54]"
             />
             <button
               type="submit"
               disabled={!replyText.trim() || isSubmittingReply}
-              className="px-3 py-1 bg-[#004C54] text-white text-sm rounded-md hover:bg-[#003940] disabled:opacity-50"
+              className="px-2 py-1 bg-[#004C54] text-white text-xs rounded-md hover:bg-[#003940] disabled:opacity-50 whitespace-nowrap"
             >
               {isSubmittingReply ? 'Sending...' : 'Reply'}
             </button>
@@ -316,7 +316,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, postId, onReplyAdded
       )}
       
       {showReplies && comment.replies && comment.replies.length > 0 && (
-        <div className="mt-2 space-y-3">
+        <div className="mt-2 space-y-2 sm:space-y-3">
           {comment.replies.map(reply => (
             <CommentItem 
               key={reply.id} 
@@ -615,18 +615,19 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
   };
 
   return (
-    <div className={`bg-white rounded-lg shadow-md p-4 relative ${isDeleting ? 'opacity-60 pointer-events-none' : ''}`}>
+    <div className={`bg-white rounded-lg shadow-md p-3 sm:p-4 relative ${isDeleting ? 'opacity-60 pointer-events-none' : ''}`}>
       {isDeleting && (
         <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-50 z-10 rounded-lg">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#004C54]"></div>
         </div>
       )}
-      <div className="flex items-start space-x-3">
+      <div className="flex items-start space-x-2 sm:space-x-3">
         <UserAvatar
           userId={post.authorId}
           displayName={authorInfo.name}
           photoURL={authorInfo.photoURL}
-          size={40}
+          size={36}
+          className="flex-shrink-0"
         />
         
         <div className="flex-1 min-w-0">
@@ -635,7 +636,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
               <UserProfileLink 
                 userId={post.authorId}
                 displayName={authorInfo.name}
-                className="font-medium text-gray-900"
+                className="font-medium text-gray-900 text-sm sm:text-base"
               />
               <p className="text-xs text-gray-500">
                 {formatTimeAgo(post.createdAt)}
@@ -645,30 +646,31 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
             {(isPostCreator || isAdmin) && !post.isDeleted && (
               <div className="relative" ref={optionsRef}>
                 <button 
-                  className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"
+                  className="text-gray-400 hover:text-gray-600 p-1 sm:p-2 rounded-full hover:bg-gray-100 transition-colors"
                   onClick={() => setShowOptions(!showOptions)}
                   aria-label="Post options"
                 >
-                  <FaEllipsisH size={16} />
+                  <FaEllipsisH size={14} className="sm:hidden" />
+                  <FaEllipsisH size={16} className="hidden sm:block" />
                 </button>
                 
                 {showOptions && (
-                  <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-20 py-1 border border-gray-200">
+                  <div className="absolute right-0 mt-1 w-40 sm:w-48 bg-white rounded-md shadow-lg z-20 py-1 border border-gray-200">
                     {canEditPost && (
                       <button
                         onClick={handleEditPost}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center transition-colors"
+                        className="w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-700 hover:bg-gray-100 flex items-center transition-colors"
                       >
-                        <FaEdit className="mr-2" size={14} />
+                        <FaEdit className="mr-2" size={12} />
                         Edit post
                       </button>
                     )}
                     <button
                       onClick={handleDeletePost}
                       disabled={isDeleting}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center transition-colors"
+                      className="w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm text-red-600 hover:bg-gray-100 flex items-center transition-colors"
                     >
-                      <FaTrash className="mr-2" size={14} />
+                      <FaTrash className="mr-2" size={12} />
                       {isDeleting ? 'Deleting...' : 'Delete post'}
                     </button>
                   </div>
@@ -689,14 +691,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
                 <button
                   type="button"
                   onClick={handleCancelEdit}
-                  className="px-3 py-1 border border-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-50"
+                  className="px-3 py-1 border border-gray-300 text-gray-700 text-xs sm:text-sm rounded-md hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={!editedContent.trim() || isSubmittingEdit}
-                  className="px-3 py-1 bg-[#004C54] text-white text-sm rounded-md hover:bg-[#003940] disabled:opacity-50"
+                  className="px-3 py-1 bg-[#004C54] text-white text-xs sm:text-sm rounded-md hover:bg-[#003940] disabled:opacity-50"
                 >
                   {isSubmittingEdit ? 'Saving...' : 'Save changes'}
                 </button>
@@ -704,7 +706,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
             </form>
           ) : (
             <>
-              <p className={`mt-2 ${post.isDeleted ? 'text-gray-500 italic' : 'text-gray-700'} whitespace-pre-wrap break-words`}>
+              <p className={`mt-2 ${post.isDeleted ? 'text-gray-500 italic' : 'text-gray-700'} whitespace-pre-wrap break-words text-sm sm:text-base`}>
                 {post.content}
               </p>
               {post.lastEdited && !post.isDeleted && (
@@ -720,14 +722,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
             </>
           )}
           
-          <div className="mt-4 flex items-center space-x-4">
+          <div className="mt-3 sm:mt-4 flex items-center space-x-4">
             <button 
               onClick={handleLike}
               disabled={post.isDeleted}
               className={`flex items-center space-x-1 ${isLiked ? 'text-red-500' : 'text-gray-500'} hover:text-red-500 ${post.isDeleted ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              {isLiked ? <FaHeart size={16} /> : <FaRegHeart size={16} />}
-              <span>{likeCount}</span>
+              {isLiked ? <FaHeart size={14} className="sm:text-base" /> : <FaRegHeart size={14} className="sm:text-base" />}
+              <span className="text-xs sm:text-sm">{likeCount}</span>
             </button>
             
             <button 
@@ -735,14 +737,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
               disabled={post.isDeleted}
               className={`flex items-center space-x-1 text-gray-500 hover:text-gray-700 ${post.isDeleted ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              <FaComment size={16} />
-              <span>{post.comments.length}</span>
+              <FaComment size={14} className="sm:text-base" />
+              <span className="text-xs sm:text-sm">{post.comments.length}</span>
             </button>
           </div>
           
           {showComments && (
-            <div className="mt-4 space-y-4">
-              <h3 className="text-sm font-medium text-gray-700">
+            <div className="mt-3 sm:mt-4 space-y-3 sm:space-y-4">
+              <h3 className="text-xs sm:text-sm font-medium text-gray-700">
                 {post.comments.length > 0 ? `Comments (${post.comments.length})` : 'No comments yet'}
               </h3>
               
@@ -767,12 +769,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
                     placeholder="Add a comment..."
-                    className="flex-1 p-2 border rounded-md text-sm focus:ring-[#004C54] focus:border-[#004C54]"
+                    className="flex-1 p-2 border rounded-md text-xs sm:text-sm focus:ring-[#004C54] focus:border-[#004C54]"
                   />
                   <button
                     type="submit"
                     disabled={!commentText.trim() || isSubmittingComment}
-                    className="px-3 py-2 bg-[#004C54] text-white text-sm rounded-md hover:bg-[#003940] disabled:opacity-50"
+                    className="px-2 sm:px-3 py-1 sm:py-2 bg-[#004C54] text-white text-xs sm:text-sm rounded-md hover:bg-[#003940] disabled:opacity-50 whitespace-nowrap"
                   >
                     {isSubmittingComment ? 'Sending...' : 'Send'}
                   </button>

@@ -183,7 +183,7 @@ const ChannelView: React.FC<ChannelViewProps> = ({ channelId }) => {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col bg-white rounded-lg shadow-md overflow-hidden">
       <ChannelHeader 
         channel={channel} 
         onShowMembers={() => setShowMembersModal(true)}
@@ -204,19 +204,18 @@ const ChannelView: React.FC<ChannelViewProps> = ({ channelId }) => {
         />
       )}
       
-      {/* Channel Actions */}
-      <div className="p-4 flex flex-wrap justify-center gap-3">
-        {/* Join button for non-members */}
-        {!isUserMember() && channel.isPublic && (
+      {/* Channel Actions - Only show if user is not a member */}
+      {!isUserMember() && channel.isPublic && (
+        <div className="p-2 sm:p-4 flex justify-center">
           <button
             onClick={handleAutoJoin}
-            className="px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940] flex items-center justify-center"
+            className="w-full sm:w-auto px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940] flex items-center justify-center"
           >
             <FaUserFriends className="mr-2" />
             Join Channel
           </button>
-        )}
-      </div>
+        </div>
+      )}
       
       {showMembersModal && (
         <ManageChannelMembersModal
