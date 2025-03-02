@@ -1,7 +1,15 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/context/AuthContext';
-import { doc, getDoc, collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { 
+  doc, 
+  collection, 
+  query, 
+  where, 
+  orderBy, 
+  limit, 
+  onSnapshot 
+} from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { FaUser, FaEnvelope, FaCalendarAlt, FaEdit, FaSpinner } from 'react-icons/fa';
 import MainLayout from '@/layouts/MainLayout';
@@ -40,127 +48,162 @@ const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState<'posts' | 'channels'>('posts');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  const fetchUserData = useCallback(async () => {
+  // Set up real-time listeners for user data
+  useEffect(() => {
     if (!user || !user.uid) {
       setIsLoading(false);
       return;
     }
 
-    try {
-      // Ensure user document exists before fetching
-      await ensureUserDocument(user);
-      
-      // Fetch user profile
-      const userRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
-      
-      if (userSnap.exists()) {
-        setUserProfile({
-          ...userSnap.data(),
-          id: user.uid,
-          displayName: user.displayName || userSnap.data().displayName || 'Anonymous',
-          email: user.email || '',
-          photoURL: user.photoURL || undefined
+    // Set up initial loading state
+    setIsLoading(true);
+
+    // Ensure user document exists
+    const setupListeners = async () => {
+      try {
+        await ensureUserDocument(user);
+        
+        // Create unsubscribe functions array to clean up listeners
+        const unsubscribers: (() => void)[] = [];
+        
+        // 1. Listen to user profile changes
+        const userRef = doc(db, 'users', user.uid);
+        const unsubscribeProfile = onSnapshot(userRef, (userSnap) => {
+          if (userSnap.exists()) {
+            setUserProfile({
+              ...userSnap.data(),
+              id: user.uid,
+              displayName: user.displayName || userSnap.data().displayName || 'Anonymous',
+              email: user.email || '',
+              photoURL: user.photoURL || userSnap.data().photoURL || undefined
+            });
+          } else {
+            setUserProfile({
+              id: user.uid,
+              displayName: user.displayName || 'Anonymous',
+              email: user.email || '',
+              photoURL: user.photoURL || undefined,
+              bio: '',
+              joinedAt: new Date()
+            });
+          }
+          setIsLoading(false);
+        }, (error) => {
+          console.error('Error listening to profile changes:', error);
+          setIsLoading(false);
         });
-      } else {
-        // This should not happen now that we ensure the document exists
-        setUserProfile({
-          id: user.uid,
-          displayName: user.displayName || 'Anonymous',
-          email: user.email || '',
-          photoURL: user.photoURL || undefined,
-          bio: '',
-          joinedAt: new Date()
+        
+        unsubscribers.push(unsubscribeProfile);
+        
+        // 2. Listen to user posts changes
+        const postsRef = collection(db, 'posts');
+        const postsQuery = query(
+          postsRef,
+          where('authorId', '==', user.uid),
+          orderBy('createdAt', 'desc'),
+          limit(5)
+        );
+        
+        const unsubscribePosts = onSnapshot(postsQuery, (postsSnap) => {
+          const postsData: UserPost[] = [];
+          
+          postsSnap.forEach((doc) => {
+            const data = doc.data();
+            postsData.push({
+              id: doc.id,
+              content: data.content,
+              authorId: data.authorId,
+              authorName: data.authorName,
+              authorPhotoURL: data.authorPhotoURL,
+              channelId: data.channelId,
+              createdAt: data.createdAt?.toDate() || new Date(),
+              lastEdited: data.lastEdited?.toDate() || null,
+              likes: data.likes || [],
+              comments: (data.comments || []).map((comment: {
+                id: string;
+                text: string;
+                authorId: string;
+                authorName: string;
+                createdAt: { toDate?: () => Date };
+              }) => ({
+                ...comment,
+                createdAt: comment.createdAt?.toDate ? comment.createdAt.toDate() : new Date()
+              })),
+              imageUrl: data.imageUrl
+            });
+          });
+          
+          setUserPosts(postsData);
+        }, (error) => {
+          console.error('Error listening to posts changes:', error);
+        });
+        
+        unsubscribers.push(unsubscribePosts);
+        
+        // 3. Listen to user channels changes
+        const channelsRef = collection(db, 'channels');
+        const channelsQuery = query(
+          channelsRef,
+          where('members', 'array-contains', user.uid),
+          orderBy('name'),
+          limit(10)
+        );
+        
+        const unsubscribeChannels = onSnapshot(channelsQuery, (channelsSnap) => {
+          const channelsData: Channel[] = [];
+          
+          channelsSnap.forEach((doc) => {
+            const data = doc.data();
+            channelsData.push({
+              id: doc.id,
+              name: data.name,
+              description: data.description,
+              isPublic: data.isPublic,
+              createdBy: data.createdBy,
+              createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+              members: data.members || [],
+              admins: data.admins || [],
+              bannedUsers: data.bannedUsers || [],
+              mutedUsers: data.mutedUsers || [],
+              invitedUsers: data.invitedUsers || [],
+              inviteCode: data.inviteCode,
+              imageUrl: data.imageUrl || null
+            });
+          });
+          
+          setUserChannels(channelsData);
+        }, (error) => {
+          console.error('Error listening to channels changes:', error);
+        });
+        
+        unsubscribers.push(unsubscribeChannels);
+        
+        // Return cleanup function to unsubscribe from all listeners
+        return () => {
+          unsubscribers.forEach(unsubscribe => unsubscribe());
+        };
+      } catch (error) {
+        console.error('Error setting up listeners:', error);
+        setIsLoading(false);
+      }
+    };
+    
+    // Set up listeners and store cleanup function
+    const unsubscribeAll = setupListeners();
+    
+    // Clean up listeners when component unmounts or user changes
+    return () => {
+      if (unsubscribeAll) {
+        unsubscribeAll.then(cleanup => {
+          if (cleanup) cleanup();
         });
       }
-      
-      // Fetch recent posts
-      const postsRef = collection(db, 'posts');
-      const postsQuery = query(
-        postsRef,
-        where('authorId', '==', user.uid),
-        orderBy('createdAt', 'desc'),
-        limit(5)
-      );
-      
-      const postsSnap = await getDocs(postsQuery);
-      const postsData: UserPost[] = [];
-      
-      postsSnap.forEach((doc) => {
-        const data = doc.data();
-        postsData.push({
-          id: doc.id,
-          content: data.content,
-          authorId: data.authorId,
-          authorName: data.authorName,
-          authorPhotoURL: data.authorPhotoURL,
-          channelId: data.channelId,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          lastEdited: data.lastEdited?.toDate() || null,
-          likes: data.likes || [],
-          comments: (data.comments || []).map((comment: {
-            id: string;
-            text: string;
-            authorId: string;
-            authorName: string;
-            createdAt: { toDate?: () => Date };
-          }) => ({
-            ...comment,
-            createdAt: comment.createdAt?.toDate ? comment.createdAt.toDate() : new Date()
-          })),
-          imageUrl: data.imageUrl
-        });
-      });
-      
-      setUserPosts(postsData);
-      
-      // Fetch user channels
-      const channelsRef = collection(db, 'channels');
-      const channelsQuery = query(
-        channelsRef,
-        where('members', 'array-contains', user.uid),
-        orderBy('name'),
-        limit(10)
-      );
-      
-      const channelsSnap = await getDocs(channelsQuery);
-      const channelsData: Channel[] = [];
-      
-      channelsSnap.forEach((doc) => {
-        const data = doc.data();
-        channelsData.push({
-          id: doc.id,
-          name: data.name,
-          description: data.description,
-          isPublic: data.isPublic,
-          createdBy: data.createdBy,
-          createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
-          members: data.members || [],
-          admins: data.admins || [],
-          bannedUsers: data.bannedUsers || [],
-          mutedUsers: data.mutedUsers || [],
-          invitedUsers: data.invitedUsers || [],
-          inviteCode: data.inviteCode,
-          imageUrl: data.imageUrl || null
-        });
-      });
-      
-      setUserChannels(channelsData);
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    };
   }, [user, ensureUserDocument]);
 
-  useEffect(() => {
-    if (user) {
-      fetchUserData();
-    }
-  }, [user, fetchUserData]);
-
   const handleProfileUpdated = () => {
-    fetchUserData();
+    // No need to manually fetch data anymore as the listeners will update automatically
+    // We can keep this function for future use or to trigger other actions after profile update
   };
 
   if (!user) {

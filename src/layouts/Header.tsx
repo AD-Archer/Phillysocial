@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
-import { FaBars, FaSignInAlt, FaUserPlus, FaUser, FaCog, FaSignOutAlt, FaUserCircle } from 'react-icons/fa';
+import { FaBars, FaSignInAlt, FaUserPlus, FaUser, FaSignOutAlt, FaUserCircle } from 'react-icons/fa';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -206,10 +206,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick }) => {
                           <FaUser className="text-[#004C54]" />
                           <span>My Profile</span>
                         </Link>
-                        <Link href="/settings" className="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
-                          <FaCog className="text-[#004C54]" />
-                          <span>Settings</span>
-                        </Link>
+                       
                         <div className="border-t border-gray-200 my-1"></div>
                         <button
                           onClick={handleSignOut}

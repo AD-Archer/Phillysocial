@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { FaNewspaper, FaUser, FaStream, FaTimes, FaHome, FaInfoCircle, FaCog } from 'react-icons/fa';
+import { FaNewspaper, FaUser, FaStream, FaTimes, FaHome, FaInfoCircle } from 'react-icons/fa';
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -15,7 +15,6 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     { icon: FaStream, label: 'Social Feed', href: '/dashboard' },
     { icon: FaNewspaper, label: 'News Feed', href: '/news' },
     { icon: FaUser, label: 'Profile', href: '/profile' },
-    { icon: FaCog, label: 'Settings', href: '/settings' },
     { icon: FaInfoCircle, label: 'About', href: '/about' },
   ];
 

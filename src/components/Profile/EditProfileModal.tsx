@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import { FaTimes, FaCamera, FaSpinner, FaCheck, FaTrash } from 'react-icons/fa';
+import { FaTimes, FaCamera, FaSpinner, FaCheck, FaTrash, FaInfoCircle, FaLink } from 'react-icons/fa';
 import Image from 'next/image';
 import { useAuth } from '@/lib/context/AuthContext';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
@@ -37,6 +37,8 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
+  const [imageUrl, setImageUrl] = useState('');
+  const [showInfoTooltip, setShowInfoTooltip] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -77,6 +79,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
       setPhotoURL(initialData.photoURL || user?.photoURL || '');
       setImageFile(null);
       setImagePreview(null);
+      setImageUrl('');
     }
   }, [isOpen, initialData, user]);
 
@@ -165,6 +168,20 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
     }
   };
 
+  const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImageUrl(e.target.value);
+  };
+
+  const handleApplyImageUrl = () => {
+    if (imageUrl.trim()) {
+      setImagePreview(imageUrl);
+      setImageFile(null);
+      showToast('Image URL applied. Save changes to update your profile.', 'info');
+    } else {
+      showToast('Please enter a valid image URL', 'warning');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -180,6 +197,9 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
         if (newPhotoURL) {
           updatedPhotoURL = newPhotoURL;
         }
+      } else if (imagePreview && imagePreview !== photoURL) {
+        // If using an image URL and it's different from the current photoURL
+        updatedPhotoURL = imagePreview;
       }
       
       try {
@@ -312,6 +332,46 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     Remove photo
                   </button>
                 )}
+              </div>
+              
+              {/* Image URL Input */}
+              <div className="mb-4">
+                <div className="flex items-center mb-1">
+                  <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700">
+                    Image URL
+                  </label>
+                  <div className="relative ml-2">
+                    <FaInfoCircle 
+                      className="text-[#004C54] cursor-pointer" 
+                      size={16}
+                      onMouseEnter={() => setShowInfoTooltip(true)}
+                      onMouseLeave={() => setShowInfoTooltip(false)}
+                    />
+                    {showInfoTooltip && (
+                      <div className="absolute z-50 w-72 p-3 bg-gray-800 text-white text-xs rounded shadow-lg -translate-x-1/2 left-1/2 mt-2 after:content-[''] after:absolute after:left-1/2 after:-top-2 after:-translate-x-1/2 after:border-8 after:border-transparent after:border-b-gray-800">
+                        <p>Enter a direct link to an image on the web. The URL should end with an image extension like .jpg, .png, or .gif. Right-click on images online and select "Copy image address" to get a valid URL.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex">
+                  <input
+                    type="text"
+                    id="imageUrl"
+                    value={imageUrl}
+                    onChange={handleImageUrlChange}
+                    placeholder="https://example.com/image.jpg"
+                    className="flex-grow p-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-[#004C54]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyImageUrl}
+                    className="bg-[#004C54] text-white px-3 rounded-r-md hover:bg-[#003940] transition-colors flex items-center"
+                  >
+                    <FaLink className="mr-1" /> Apply
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Add an image from the web instead of uploading</p>
               </div>
               
               {/* Display Name */}
