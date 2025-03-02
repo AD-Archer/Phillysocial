@@ -4,7 +4,7 @@ import { FaTimes, FaUserShield, FaUserMinus, FaSearch, FaEllipsisV, FaTrash, FaV
 import Image from 'next/image';
 import { Channel } from '@/types/Channel';
 import { useAuth } from '@/lib/context/AuthContext';
-import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, getDoc, collection, addDoc, FieldValue } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useToast } from '../layouts/Toast';
 
@@ -115,12 +115,12 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
     
     try {
       const channelRef = doc(db, 'channels', channel.id);
+      const updateData: { [key: string]: FieldValue } = {};
       
       if (isUserAdmin(userId)) {
         // Remove admin role
-        await updateDoc(channelRef, {
-          admins: arrayRemove(userId)
-        });
+        updateData.admins = arrayRemove(userId);
+        await updateDoc(channelRef, updateData);
         
         // Update local state
         const updatedChannel = {
@@ -131,9 +131,8 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
         showToast('Admin role removed', 'success');
       } else {
         // Add admin role
-        await updateDoc(channelRef, {
-          admins: arrayUnion(userId)
-        });
+        updateData.admins = arrayUnion(userId);
+        await updateDoc(channelRef, updateData);
         
         // Update local state
         const updatedChannel = {
@@ -161,18 +160,17 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
     
     try {
       const channelRef = doc(db, 'channels', channel.id);
+      const updateData: { [key: string]: FieldValue } = {};
       
       // Remove from members
-      await updateDoc(channelRef, {
-        members: arrayRemove(userId)
-      });
+      updateData.members = arrayRemove(userId);
       
       // If they were an admin, remove from admins too
       if (isUserAdmin(userId)) {
-        await updateDoc(channelRef, {
-          admins: arrayRemove(userId)
-        });
+        updateData.admins = arrayRemove(userId);
       }
+      
+      await updateDoc(channelRef, updateData);
       
       // Update local state
       const updatedChannel = {
@@ -200,11 +198,17 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
     
     try {
       const channelRef = doc(db, 'channels', channel.id);
-      await updateDoc(channelRef, { 
+      const updateData: { 
+        deleted: boolean; 
+        deletedAt: Date; 
+        deletedBy: string;
+      } = {
         deleted: true,
         deletedAt: new Date(),
         deletedBy: user.uid
-      });
+      };
+      
+      await updateDoc(channelRef, updateData);
       
       // In a real app, you might want to actually delete the document
       // or move it to an archive collection
@@ -227,20 +231,19 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
     
     try {
       const channelRef = doc(db, 'channels', channel.id);
+      const updateData: { [key: string]: FieldValue } = {};
       
       if (isMuted) {
         // Unmute user
-        await updateDoc(channelRef, {
-          mutedUsers: arrayRemove(userId)
-        });
-        showToast('User unmuted', 'success');
+        updateData.mutedUsers = arrayRemove(userId);
       } else {
         // Mute user
-        await updateDoc(channelRef, {
-          mutedUsers: arrayUnion(userId)
-        });
-        showToast('User muted', 'success');
+        updateData.mutedUsers = arrayUnion(userId);
       }
+      
+      await updateDoc(channelRef, updateData);
+      
+      showToast(isMuted ? 'User unmuted' : 'User muted', 'success');
       
       // Update local state
       const updatedChannel = {
@@ -257,24 +260,45 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
     }
   };
   
-  const handleBanUser = async (userId: string, isBanned: boolean) => {
+  const handleBanUser = async (userId: string, isBanned: boolean, reason: string = '') => {
     if (!user || !currentUserIsAdmin) return;
     
     try {
       const channelRef = doc(db, 'channels', channel.id);
+      const updateData: { [key: string]: FieldValue } = {};
       
       if (isBanned) {
         // Unban user
-        await updateDoc(channelRef, {
-          bannedUsers: arrayRemove(userId)
-        });
+        updateData.bannedUsers = arrayRemove(userId);
+        await updateDoc(channelRef, updateData);
         showToast('User unbanned', 'success');
       } else {
         // Ban user and remove from members
-        await updateDoc(channelRef, {
-          bannedUsers: arrayUnion(userId),
-          members: arrayRemove(userId)
-        });
+        updateData.bannedUsers = arrayUnion(userId);
+        updateData.members = arrayRemove(userId);
+        await updateDoc(channelRef, updateData);
+        
+        // Record ban history in a subcollection
+        try {
+          const banHistoryRef = collection(db, 'channels', channel.id, 'banHistory');
+          await addDoc(banHistoryRef, {
+            userId: userId,
+            bannedBy: user.uid,
+            bannedAt: new Date(),
+            reason: reason || 'No reason provided'
+          });
+        } catch (historyError: unknown) {
+          console.error('Error recording ban history:', historyError);
+          // Check if it's a permission error
+          if (typeof historyError === 'object' && historyError !== null && 'code' in historyError && historyError.code === 'permission-denied') {
+            showToast('User banned, but ban history could not be recorded due to permission settings', 'warning');
+          } else {
+            // For other errors, just log them
+            console.error('Failed to record ban history:', historyError);
+          }
+          // Continue even if recording history fails
+        }
+        
         showToast('User banned', 'success');
       }
       
@@ -526,7 +550,7 @@ interface MemberItemProps {
   onToggleAdmin: () => void;
   onRemove: () => void;
   onMute?: (userId: string, isMuted: boolean) => void;
-  onBan?: (userId: string, isBanned: boolean) => void;
+  onBan?: (userId: string, isBanned: boolean, reason?: string) => void;
   isMuted?: boolean;
   isBanned?: boolean;
 }
@@ -545,6 +569,8 @@ const MemberItem: React.FC<MemberItemProps> = ({
 }) => {
   const [showOptions, setShowOptions] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [showBanDialog, setShowBanDialog] = useState(false);
+  const [banReason, setBanReason] = useState('');
   const optionsRef = useRef<HTMLDivElement>(null);
   
   return (
@@ -664,7 +690,13 @@ const MemberItem: React.FC<MemberItemProps> = ({
                 
                 <button
                   onClick={() => {
-                    if (onBan) onBan(member.uid, isBanned);
+                    if (onBan) {
+                      if (isBanned) {
+                        onBan(member.uid, isBanned);
+                      } else {
+                        setShowBanDialog(true);
+                      }
+                    }
                     setShowOptions(false);
                   }}
                   className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
@@ -729,6 +761,54 @@ const MemberItem: React.FC<MemberItemProps> = ({
               </ul>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Ban User Dialog */}
+      {showBanDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[70] p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center mb-4 text-red-500">
+              <FaBan size={24} className="mr-3" />
+              <h3 className="text-lg font-semibold">Ban User</h3>
+            </div>
+            
+            <p className="mb-4 text-gray-700">
+              Are you sure you want to ban <strong>{member.displayName}</strong> from this channel?
+            </p>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Reason for ban (optional):
+              </label>
+              <textarea
+                value={banReason}
+                onChange={(e) => setBanReason(e.target.value)}
+                className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                rows={3}
+                placeholder="Enter reason for banning this user..."
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowBanDialog(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (onBan) onBan(member.uid, false, banReason);
+                  setShowBanDialog(false);
+                }}
+                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center"
+              >
+                <FaBan className="mr-2" size={14} />
+                Ban User
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
