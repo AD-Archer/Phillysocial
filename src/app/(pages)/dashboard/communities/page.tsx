@@ -4,8 +4,6 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/context/AuthContext';
 import { collection, query, where, getDocs, orderBy, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
-import Header from '@/layouts/Header';
-import Sidebar from '@/layouts/Sidebar';
 import { Channel } from '@/types/Channel';
 import { FaUsers, FaSearch, FaFilter, FaPlus, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import Image from 'next/image';
@@ -24,7 +22,6 @@ export default function Communities() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { showToast } = useToast();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [communities, setCommunities] = useState<CommunityChannel[]>([]);
   const [filteredCommunities, setFilteredCommunities] = useState<CommunityChannel[]>([]);
@@ -214,14 +211,6 @@ export default function Communities() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      <Header 
-        onMenuClick={() => setIsSidebarOpen(true)}
-        onProfileClick={() => router.push('/profile')}
-      />
-      
-      <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-
-      {/* Main Content */}
       <div className="pt-16 flex-1 flex flex-col">
         <main className="max-w-7xl mx-auto p-2 sm:p-4 lg:p-6 w-full flex-1 flex flex-col">
           {/* Page Header */}
