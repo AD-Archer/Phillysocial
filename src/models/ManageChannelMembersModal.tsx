@@ -558,7 +558,8 @@ const MemberItem: React.FC<MemberItemProps> = ({
                 alt={member.displayName}
                 width={48}
                 height={48}
-                className="object-cover"
+                className="object-cover w-full h-full"
+                style={{ objectFit: 'cover', objectPosition: 'center' }}
               />
             </div>
             <div className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-white

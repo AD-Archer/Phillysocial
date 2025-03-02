@@ -46,14 +46,15 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick }) => {
               onClick={onProfileClick}
               className="flex items-center space-x-2 focus:outline-none"
             >
-              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
                 {profilePicture ? (
                   <Image
                     src={profilePicture}
                     alt="Profile"
-                    width={32}
-                    height={32}
-                    className="rounded-full object-cover"
+                    width={40}
+                    height={40}
+                    className="rounded-full object-cover w-full h-full"
+                    style={{ objectFit: 'cover', objectPosition: 'center' }}
                   />
                 ) : (
                   <span className="text-sm font-medium text-gray-700">
