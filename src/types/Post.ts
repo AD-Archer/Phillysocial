@@ -19,4 +19,6 @@ export interface Comment {
   authorName: string;
   authorPhotoURL?: string;
   createdAt: Date;
+  parentId?: string; // ID of the parent comment (if this is a reply)
+  replies?: Comment[]; // Array of reply comments
 } 

@@ -8,9 +8,14 @@ import { Post, Comment } from '@/types/Post';
 import Image from 'next/image';
 
 // Simple date formatter until date-fns is installed
-const formatTimeAgo = (date: Date): string => {
+const formatTimeAgo = (date: Date | { toDate: () => Date } | unknown): string => {
+  // Ensure we have a valid Date object
+  const validDate = date instanceof Date ? date : 
+                   (date && typeof date === 'object' && 'toDate' in date && typeof date.toDate === 'function') ? date.toDate() : 
+                   new Date();
+  
   const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  const diffInSeconds = Math.floor((now.getTime() - validDate.getTime()) / 1000);
   
   if (diffInSeconds < 60) return `${diffInSeconds} seconds ago`;
   
@@ -38,13 +43,25 @@ interface PostCardProps {
 
 interface CommentItemProps {
   comment: Comment;
+  postId: string;
+  onReplyAdded: (parentCommentId: string, newReply: Comment) => void;
+  level?: number;
 }
 
-const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
+const CommentItem: React.FC<CommentItemProps> = ({ comment, postId, onReplyAdded, level = 0 }) => {
   const [authorInfo, setAuthorInfo] = useState({
     name: comment.authorName,
     photoURL: comment.authorPhotoURL || undefined
   });
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+  const [showReplies, setShowReplies] = useState(true);
+  const { user } = useAuth();
+  
+  // Maximum nesting level to prevent excessive indentation
+  const MAX_NESTING_LEVEL = 3;
+  const currentLevel = Math.min(level, MAX_NESTING_LEVEL);
 
   // Fetch the latest author information from Firestore
   useEffect(() => {
@@ -68,32 +85,137 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
     fetchAuthorInfo();
   }, [comment.authorId, comment.authorName, comment.authorPhotoURL]);
 
+  // Ensure createdAt is a valid Date object
+  const createdAt = comment.createdAt instanceof Date 
+    ? comment.createdAt 
+    : (comment.createdAt && typeof comment.createdAt === 'object' && 
+       'toDate' in comment.createdAt && 
+       typeof (comment.createdAt as { toDate: () => Date }).toDate === 'function')
+      ? (comment.createdAt as { toDate: () => Date }).toDate()
+      : new Date();
+      
+  const handleSubmitReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!user || !replyText.trim()) return;
+    
+    setIsSubmittingReply(true);
+    
+    try {
+      // Use Firestore user data if available, fallback to Firebase user data
+      const displayName = user.firestoreData?.displayName || user.displayName || 'Anonymous';
+      const photoURL = user.firestoreData?.photoURL || user.photoURL || undefined;
+      
+      const newReply: Comment = {
+        id: Date.now().toString(), // Simple ID generation
+        content: replyText.trim(),
+        authorId: user.uid,
+        authorName: displayName,
+        authorPhotoURL: photoURL,
+        createdAt: new Date(),
+        parentId: comment.id,
+        replies: []
+      };
+      
+      // Call the parent handler to update the post with the new reply
+      onReplyAdded(comment.id, newReply);
+      
+      // Reset form
+      setReplyText('');
+      setShowReplyForm(false);
+    } catch (error) {
+      console.error('Error adding reply:', error);
+    } finally {
+      setIsSubmittingReply(false);
+    }
+  };
+
+  // Calculate left margin based on nesting level
+  const marginLeft = currentLevel > 0 ? `${currentLevel * 16}px` : '0';
+  
   return (
-    <div className="flex space-x-2">
-      <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
-        {authorInfo.photoURL ? (
-          <Image
-            src={authorInfo.photoURL}
-            alt={authorInfo.name}
-            width={32}
-            height={32}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs font-medium">
-            {authorInfo.name[0].toUpperCase()}
-          </div>
-        )}
-      </div>
-      <div className="flex-1 bg-gray-100 rounded-lg p-2">
-        <div className="flex justify-between items-center">
-          <span className="font-medium text-sm">{authorInfo.name}</span>
-          <span className="text-xs text-gray-500">
-            {formatTimeAgo(comment.createdAt)}
-          </span>
+    <div style={{ marginLeft }}>
+      <div className="flex space-x-2">
+        <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
+          {authorInfo.photoURL ? (
+            <Image
+              src={authorInfo.photoURL}
+              alt={authorInfo.name}
+              width={32}
+              height={32}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs font-medium">
+              {authorInfo.name[0].toUpperCase()}
+            </div>
+          )}
         </div>
-        <p className="text-sm text-gray-700 mt-1">{comment.content}</p>
+        <div className="flex-1 bg-gray-100 rounded-lg p-2">
+          <div className="flex justify-between items-center">
+            <span className="font-medium text-sm">{authorInfo.name}</span>
+            <span className="text-xs text-gray-500">
+              {formatTimeAgo(createdAt)}
+            </span>
+          </div>
+          <p className="text-sm text-gray-700 mt-1">{comment.content}</p>
+          
+          {user && (
+            <div className="mt-2 flex items-center">
+              <button 
+                onClick={() => setShowReplyForm(!showReplyForm)}
+                className="text-xs text-gray-500 hover:text-[#004C54]"
+              >
+                {showReplyForm ? 'Cancel' : 'Reply'}
+              </button>
+              
+              {comment.replies && comment.replies.length > 0 && (
+                <button 
+                  onClick={() => setShowReplies(!showReplies)}
+                  className="text-xs text-gray-500 hover:text-[#004C54] ml-3"
+                >
+                  {showReplies ? 'Hide replies' : `Show ${comment.replies.length} ${comment.replies.length === 1 ? 'reply' : 'replies'}`}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
+      
+      {showReplyForm && (
+        <div className="ml-10 mt-2">
+          <form onSubmit={handleSubmitReply} className="flex space-x-2">
+            <input
+              type="text"
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              placeholder="Write a reply..."
+              className="flex-1 p-2 border rounded-md text-sm focus:ring-[#004C54] focus:border-[#004C54]"
+            />
+            <button
+              type="submit"
+              disabled={!replyText.trim() || isSubmittingReply}
+              className="px-3 py-1 bg-[#004C54] text-white text-sm rounded-md hover:bg-[#003940] disabled:opacity-50"
+            >
+              {isSubmittingReply ? 'Sending...' : 'Reply'}
+            </button>
+          </form>
+        </div>
+      )}
+      
+      {showReplies && comment.replies && comment.replies.length > 0 && (
+        <div className="mt-2 space-y-3">
+          {comment.replies.map(reply => (
+            <CommentItem 
+              key={reply.id} 
+              comment={reply} 
+              postId={postId}
+              onReplyAdded={onReplyAdded}
+              level={currentLevel + 1}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -204,7 +326,8 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
         authorId: user.uid,
         authorName: displayName,
         authorPhotoURL: photoURL,
-        createdAt: new Date()
+        createdAt: new Date(), // Ensure this is a proper Date object
+        replies: [] // Initialize with empty replies array
       };
       
       const postRef = doc(db, 'posts', post.id);
@@ -212,8 +335,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
         comments: arrayUnion(newComment)
       });
       
-      // Update local state
-      post.comments.push(newComment);
+      // Update local state - ensure we're adding with the proper Date object
+      post.comments.push({
+        ...newComment,
+        createdAt: new Date(), // Explicitly use a Date object for local state
+        replies: [] // Ensure replies array is initialized
+      });
       setCommentText('');
     } catch (error) {
       console.error('Error adding comment:', error);
@@ -288,6 +415,55 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
       alert('Failed to update post. Please try again.');
     } finally {
       setIsSubmittingEdit(false);
+    }
+  };
+
+  // Function to add a reply to a comment
+  const handleAddReply = async (parentCommentId: string, newReply: Comment) => {
+    if (!user) return;
+    
+    try {
+      // Create a deep copy of the current comments array
+      const updatedComments = JSON.parse(JSON.stringify(post.comments)) as Comment[];
+      
+      // Helper function to recursively find and update the parent comment
+      const addReplyToComment = (comments: Comment[], parentId: string, reply: Comment): boolean => {
+        for (let i = 0; i < comments.length; i++) {
+          const comment = comments[i];
+          
+          if (comment.id === parentId) {
+            // Initialize replies array if it doesn't exist
+            if (!comment.replies) {
+              comment.replies = [];
+            }
+            // Add the reply to this comment
+            (comment.replies as Comment[]).push(reply);
+            return true;
+          }
+          
+          // Check nested replies if they exist
+          if (comment.replies && comment.replies.length > 0) {
+            const found = addReplyToComment(comment.replies as Comment[], parentId, reply);
+            if (found) return true;
+          }
+        }
+        return false;
+      };
+      
+      // Add the reply to the appropriate parent comment
+      addReplyToComment(updatedComments, parentCommentId, newReply);
+      
+      // Update Firestore with the new comments structure
+      const postRef = doc(db, 'posts', post.id);
+      await updateDoc(postRef, {
+        comments: updatedComments
+      });
+      
+      // Update local state
+      post.comments = updatedComments;
+      
+    } catch (error) {
+      console.error('Error adding reply:', error);
     }
   };
 
@@ -412,7 +588,12 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
               {post.comments.length > 0 ? (
                 <div className="space-y-3">
                   {post.comments.map(comment => (
-                    <CommentItem key={comment.id} comment={comment} />
+                    <CommentItem 
+                      key={comment.id} 
+                      comment={comment} 
+                      postId={post.id}
+                      onReplyAdded={handleAddReply}
+                    />
                   ))}
                 </div>
               ) : (
