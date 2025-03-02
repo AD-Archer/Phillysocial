@@ -1,13 +1,14 @@
 'use client';
-import { useState } from 'react';
-import { FaUsers, FaCog, FaKey, FaLock, FaGlobe, FaTrash, FaEdit, FaUserShield } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import { FaUsers, FaCog, FaKey, FaLock, FaGlobe, FaTrash, FaEdit, FaUserShield, FaRandom, FaCalendarAlt } from 'react-icons/fa';
 import { Channel } from '@/types/Channel';
 import { useAuth } from '@/lib/context/AuthContext';
 import ManageChannelMembersModal from '../../models/ManageChannelMembersModal';
 import EditChannelModal from '../../models/EditChannelModal';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useToast } from '../../layouts/Toast';
+import { useRouter } from 'next/navigation';
 
 interface ChannelManagementPanelProps {
   channel: Channel;
@@ -26,8 +27,18 @@ const ChannelManagementPanel: React.FC<ChannelManagementPanelProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isGeneratingCode, setIsGeneratingCode] = useState(false);
+  const [inviteCodeExpiry, setInviteCodeExpiry] = useState<string>('');
   const { user } = useAuth();
   const { showToast } = useToast();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (channel.inviteCodeExpiry) {
+      const expiryDate = new Date(channel.inviteCodeExpiry);
+      setInviteCodeExpiry(expiryDate.toISOString().split('T')[0]);
+    }
+  }, [channel]);
 
   const isUserAdmin = () => {
     if (!user) return false;
@@ -42,14 +53,23 @@ const ChannelManagementPanel: React.FC<ChannelManagementPanelProps> = ({
     try {
       const channelRef = doc(db, 'channels', channel.id);
       
-      await updateDoc(channelRef, {
+      // If making private, generate an invite code
+      const updates: { isPublic: boolean; inviteCode?: string } = {
         isPublic: !channel.isPublic
-      });
+      };
+      
+      // If switching to private, generate an invite code if one doesn't exist
+      if (!channel.isPublic === false && !channel.inviteCode) {
+        const inviteCode = generateRandomInviteCode();
+        updates.inviteCode = inviteCode;
+      }
+      
+      await updateDoc(channelRef, updates);
       
       // Update local state
       const updatedChannel = {
         ...channel,
-        isPublic: !channel.isPublic
+        ...updates
       };
       
       onUpdate(updatedChannel);
@@ -62,24 +82,92 @@ const ChannelManagementPanel: React.FC<ChannelManagementPanelProps> = ({
     }
   };
 
+  const generateRandomInviteCode = () => {
+    // Generate a random 10-character alphanumeric code
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < 10; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
+  const handleGenerateNewInviteCode = async () => {
+    if (!isUserAdmin()) return;
+    
+    setIsGeneratingCode(true);
+    
+    try {
+      const newInviteCode = generateRandomInviteCode();
+      const channelRef = doc(db, 'channels', channel.id);
+      
+      const updates: { inviteCode: string; inviteCodeExpiry: Date | undefined } = {
+        inviteCode: newInviteCode,
+        inviteCodeExpiry: inviteCodeExpiry ? new Date(inviteCodeExpiry) : undefined
+      };
+      
+      await updateDoc(channelRef, updates);
+      
+      // Update local state
+      const updatedChannel = {
+        ...channel,
+        ...updates
+      };
+      
+      onUpdate(updatedChannel);
+      showToast('New invite code generated successfully', 'success');
+    } catch (error) {
+      console.error('Error generating new invite code:', error);
+      showToast('Failed to generate new invite code', 'error');
+    } finally {
+      setIsGeneratingCode(false);
+    }
+  };
+
+  const handleUpdateInviteCodeExpiry = async () => {
+    if (!isUserAdmin()) return;
+    
+    setIsUpdating(true);
+    
+    try {
+      const channelRef = doc(db, 'channels', channel.id);
+      
+      const updates: { inviteCodeExpiry: Date | undefined } = {
+        inviteCodeExpiry: inviteCodeExpiry ? new Date(inviteCodeExpiry) : undefined
+      };
+      
+      await updateDoc(channelRef, updates);
+      
+      // Update local state
+      const updatedChannel = {
+        ...channel,
+        ...updates
+      };
+      
+      onUpdate(updatedChannel);
+      showToast('Invite code expiry updated', 'success');
+    } catch (error) {
+      console.error('Error updating invite code expiry:', error);
+      showToast('Failed to update invite code expiry', 'error');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const handleDeleteChannel = async () => {
     if (!isUserAdmin()) return;
     
     setIsDeleting(true);
     
     try {
+      // Permanently delete the channel
       const channelRef = doc(db, 'channels', channel.id);
+      await deleteDoc(channelRef);
       
-      await updateDoc(channelRef, {
-        deleted: true,
-        deletedAt: new Date(),
-        deletedBy: user?.uid
-      });
-      
-      showToast('Channel deleted successfully', 'success');
+      showToast('Channel permanently deleted', 'success');
       
       // Redirect to dashboard
-      window.location.href = '/dashboard';
+      router.push('/dashboard');
     } catch (error) {
       console.error('Error deleting channel:', error);
       showToast('Failed to delete channel', 'error');
@@ -216,7 +304,46 @@ const ChannelManagementPanel: React.FC<ChannelManagementPanelProps> = ({
                     {channel.inviteCode}
                   </code>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
+                
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <FaCalendarAlt className="inline mr-1" /> Invite Code Expiry (Optional)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={inviteCodeExpiry}
+                      onChange={(e) => setInviteCodeExpiry(e.target.value)}
+                      className="flex-1 p-2 border border-gray-300 rounded-md text-sm"
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                    <button
+                      onClick={handleUpdateInviteCodeExpiry}
+                      disabled={isUpdating}
+                      className="px-2 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm"
+                    >
+                      Update
+                    </button>
+                  </div>
+                  {channel.inviteCodeExpiry && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Current expiry: {new Date(channel.inviteCodeExpiry).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+                
+                <div className="mt-3">
+                  <button
+                    onClick={handleGenerateNewInviteCode}
+                    disabled={isGeneratingCode}
+                    className="w-full flex items-center justify-center px-3 py-1.5 bg-[#004C54] text-white rounded-md hover:bg-[#003940] text-sm"
+                  >
+                    <FaRandom className="mr-2" />
+                    Generate New Invite Code
+                  </button>
+                </div>
+                
+                <p className="mt-2 text-xs text-gray-500">
                   Share this code with people you want to invite to this channel
                 </p>
               </div>
@@ -275,7 +402,7 @@ const ChannelManagementPanel: React.FC<ChannelManagementPanelProps> = ({
             </div>
             
             <p className="mb-6 text-gray-700">
-              Are you sure you want to delete <strong>{channel.name}</strong>? This action cannot be undone.
+              Are you sure you want to delete <strong>{channel.name}</strong>? This action cannot be undone and will permanently delete all channel data.
             </p>
             
             <div className="flex justify-end space-x-3">

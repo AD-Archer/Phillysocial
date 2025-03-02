@@ -1,10 +1,10 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { FaTimes, FaImage, FaLock, FaGlobe, FaTrash } from 'react-icons/fa';
+import { useState } from 'react';
+import { FaTimes, FaLock, FaGlobe, FaExclamationTriangle } from 'react-icons/fa';
 import Image from 'next/image';
 import { Channel } from '@/types/Channel';
 import { useAuth } from '@/lib/context/AuthContext';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useToast } from '../layouts/Toast';
 
@@ -24,9 +24,28 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
   const [isPublic, setIsPublic] = useState(channel.isPublic);
   const [imageUrl, setImageUrl] = useState(channel.imageUrl || '');
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingName, setIsCheckingName] = useState(false);
   const [error, setError] = useState('');
   const { user } = useAuth();
   const { showToast } = useToast();
+
+  const checkChannelNameExists = async (channelName: string): Promise<boolean> => {
+    if (channelName === channel.name) return false; // Same name as current, no conflict
+    
+    setIsCheckingName(true);
+    try {
+      const channelsRef = collection(db, 'channels');
+      const q = query(channelsRef, where('name', '==', channelName));
+      const querySnapshot = await getDocs(q);
+      
+      return !querySnapshot.empty;
+    } catch (error) {
+      console.error('Error checking channel name:', error);
+      return false;
+    } finally {
+      setIsCheckingName(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,6 +62,14 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
     setError('');
     
     try {
+      // Check if channel name already exists
+      const nameExists = await checkChannelNameExists(name.trim());
+      if (nameExists) {
+        setError('A channel with this name already exists. Please choose a different name.');
+        setIsLoading(false);
+        return;
+      }
+      
       const channelRef = doc(db, 'channels', channel.id);
       
       const updates: Partial<Channel> = {
@@ -52,7 +79,7 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
       };
       
       if (imageUrl !== channel.imageUrl) {
-        updates.imageUrl = imageUrl.trim() || null;
+        updates.imageUrl = imageUrl.trim() || undefined;
       }
       
       await updateDoc(channelRef, updates);
@@ -86,8 +113,9 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
         
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4">
           {error && (
-            <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-md">
-              {error}
+            <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-md flex items-start">
+              <FaExclamationTriangle className="mr-2 mt-0.5 flex-shrink-0" />
+              <span>{error}</span>
             </div>
           )}
           
@@ -100,10 +128,13 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#004C54]"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-[#004C54] focus:border-[#004C54]"
               placeholder="Enter channel name"
               required
             />
+            <p className="mt-1 text-xs text-gray-500">
+              Choose a unique name for your channel
+            </p>
           </div>
           
           <div className="mb-4">
@@ -114,7 +145,7 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
               id="channel-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#004C54]"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-[#004C54] focus:border-[#004C54]"
               placeholder="Enter channel description"
               rows={3}
             />
@@ -124,42 +155,40 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
             <label htmlFor="channel-image" className="block text-sm font-medium text-gray-700 mb-1">
               Channel Image URL
             </label>
-            <div className="flex">
-              <input
-                id="channel-image"
-                type="text"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-[#004C54]"
-                placeholder="Enter image URL"
-              />
-              {imageUrl && (
-                <div className="relative w-10 h-10 border border-l-0 border-gray-300 rounded-r-md overflow-hidden flex items-center justify-center bg-gray-100">
-                  <Image
-                    src={imageUrl}
-                    alt="Channel image preview"
-                    fill
-                    sizes="40px"
-                    className="object-cover"
-                    onError={() => setImageUrl('')}
-                  />
-                </div>
-              )}
-              {!imageUrl && (
-                <div className="w-10 h-10 border border-l-0 border-gray-300 rounded-r-md flex items-center justify-center bg-gray-100">
-                  <FaImage className="text-gray-400" />
-                </div>
-              )}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <input
+              id="channel-image"
+              type="text"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-[#004C54] focus:border-[#004C54]"
+              placeholder="Enter image URL (optional)"
+            />
+            
+            {imageUrl && (
+              <div className="mt-2 relative w-16 h-16 rounded-md overflow-hidden border border-gray-200">
+                <Image 
+                  src={imageUrl}
+                  alt="Channel preview"
+                  fill
+                  className="object-cover"
+                  onError={() => {
+                    showToast('Invalid image URL', 'error');
+                    setImageUrl('');
+                  }}
+                />
+              </div>
+            )}
+            
+            <p className="mt-1 text-xs text-gray-500">
               Provide a URL to an image for your channel (optional)
             </p>
           </div>
           
-          <div className="mb-4">
+          <div className="mb-6">
             <span className="block text-sm font-medium text-gray-700 mb-2">
-              Channel Privacy
+              Privacy Setting
             </span>
+            
             <div className="flex space-x-4">
               <label className="flex items-center">
                 <input
@@ -169,9 +198,12 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
                   onChange={() => setIsPublic(true)}
                   className="mr-2"
                 />
-                <FaGlobe className="mr-2 text-gray-600" />
-                <span>Public</span>
+                <div className="flex items-center">
+                  <FaGlobe className="mr-1 text-[#046A38]" />
+                  <span>Public</span>
+                </div>
               </label>
+              
               <label className="flex items-center">
                 <input
                   type="radio"
@@ -180,38 +212,37 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
                   onChange={() => setIsPublic(false)}
                   className="mr-2"
                 />
-                <FaLock className="mr-2 text-gray-600" />
-                <span>Private</span>
+                <div className="flex items-center">
+                  <FaLock className="mr-1 text-[#004C54]" />
+                  <span>Private</span>
+                </div>
               </label>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            
+            <p className="mt-1 text-xs text-gray-500">
               {isPublic 
-                ? 'Public channels can be discovered and joined by anyone' 
+                ? 'Public channels can be joined by anyone' 
                 : 'Private channels require an invite code to join'}
             </p>
           </div>
-        </form>
-        
-        <div className="p-4 border-t">
-          <div className="flex justify-end space-x-3">
+          
+          <div className="flex justify-end space-x-3 border-t pt-4">
             <button
               type="button"
               onClick={onClose}
               className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-              disabled={isLoading}
             >
               Cancel
             </button>
             <button
-              type="button"
-              onClick={handleSubmit}
-              className="px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940]"
-              disabled={isLoading}
+              type="submit"
+              className="px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940] flex items-center"
+              disabled={isLoading || isCheckingName}
             >
               {isLoading ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );

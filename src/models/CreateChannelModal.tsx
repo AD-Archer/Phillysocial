@@ -1,10 +1,11 @@
 'use client';
-import { useState } from 'react';
-import { FaTimes, FaUserPlus, FaKey, FaUserShield, FaRandom } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import { FaTimes, FaUserPlus, FaKey, FaUserShield, FaRandom, FaExclamationTriangle, FaCalendarAlt } from 'react-icons/fa';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Channel } from '@/types/Channel';
+import { useToast } from '../layouts/Toast';
 
 interface CreateChannelModalProps {
   onClose: () => void;
@@ -17,16 +18,25 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ onClose, onChan
   const [isPublic, setIsPublic] = useState(true);
   const [inviteEmails, setInviteEmails] = useState('');
   const [inviteCode, setInviteCode] = useState('');
+  const [inviteCodeExpiry, setInviteCodeExpiry] = useState('');
   const [adminEmails, setAdminEmails] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const { user } = useAuth();
+  const { showToast } = useToast();
+
+  // Generate a random invite code when the component mounts or when privacy changes
+  useEffect(() => {
+    if (!isPublic) {
+      generateInviteCode();
+    }
+  }, [isPublic]);
 
   // Generate a random invite code
   const generateInviteCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 10; i++) {
       result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     setInviteCode(result);
@@ -34,47 +44,28 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ onClose, onChan
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!user) {
-      setError('You must be logged in to create a channel');
-      return;
-    }
-    
-    if (!name.trim()) {
-      setError('Channel name is required');
-      return;
-    }
-    
-    if (!isPublic && !inviteCode) {
-      setError('Private channels require an invite code');
-      return;
-    }
-    
     setIsLoading(true);
     setError('');
-    
+
+    if (!user) {
+      setError('You must be logged in to create a channel.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      // Create a timestamp that works with Firestore
+      // Validate inputs
+      if (!name.trim()) {
+        setError('Channel name is required.');
+        setIsLoading(false);
+        return;
+      }
+
       const timestamp = new Date();
-      
-      // Process invited emails if provided
-      const invitedUsers: string[] = [];
-      if (inviteEmails.trim()) {
-        invitedUsers.push(...inviteEmails.split(',').map(email => email.trim()));
-      }
-      
-      // Process admin emails if provided
-      const adminUsers: string[] = [user.uid]; // Creator is always an admin
-      if (adminEmails.trim()) {
-        // In a real app, you'd convert emails to user IDs
-        // For now, we'll just store the emails as placeholders
-        const additionalAdmins = adminEmails.split(',').map(email => email.trim());
-        // In a real implementation, you would look up user IDs by email
-        // For now, we'll just add them to the list
-        adminUsers.push(...additionalAdmins);
-      }
-      
-      const channelData = {
+      const adminUsers: string[] = [user.uid];
+      const invitedUsers: string[] = inviteEmails.trim() ? inviteEmails.split(',').map(email => email.trim()) : [];
+
+      const channelData: Omit<Channel, 'id'> = {
         name: name.trim(),
         description: description.trim(),
         createdBy: user.uid,
@@ -83,31 +74,26 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ onClose, onChan
         admins: adminUsers,
         isPublic,
         ...(invitedUsers.length > 0 && { invitedUsers }),
-        ...((!isPublic && inviteCode) && { inviteCode })
       };
-      
+
       // Add the document to Firestore
       const docRef = await addDoc(collection(db, 'channels'), {
         ...channelData,
         createdAt: serverTimestamp() // Use serverTimestamp for Firestore
       });
-      
+
       // Create the channel object with the new ID
       const newChannel: Channel = {
         id: docRef.id,
         ...channelData
       };
-      
+
       onChannelCreated(newChannel);
-    } catch (error: Error | unknown) {
+      showToast('Channel created successfully!', 'success');
+      onClose();
+    } catch (error) {
       console.error('Error creating channel:', error);
-      
-      // Provide a more helpful error message
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError('An error occurred');
-      }
+      setError('Failed to create channel. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -116,150 +102,182 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ onClose, onChan
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
-        <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white z-10">
+        <div className="flex justify-between items-center p-4 border-b">
           <h2 className="text-lg font-semibold text-[#004C54]">Create New Channel</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
             <FaTimes />
           </button>
         </div>
         
-        <form id="createChannelForm" onSubmit={handleSubmit} className="p-4 overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4">
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-md flex items-start">
+              <FaExclamationTriangle className="mr-2 mt-0.5 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+          
           <div className="mb-4">
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="channel-name" className="block text-sm font-medium text-gray-700 mb-1">
               Channel Name*
             </label>
             <input
+              id="channel-name"
               type="text"
-              id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full p-2 border rounded-md focus:ring-[#004C54] focus:border-[#004C54]"
-              placeholder="e.g., announcements"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-[#004C54] focus:border-[#004C54]"
+              placeholder="Enter channel name"
+              required
             />
+            <p className="mt-1 text-xs text-gray-500">
+              Choose a unique name for your channel
+            </p>
           </div>
           
           <div className="mb-4">
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="channel-description" className="block text-sm font-medium text-gray-700 mb-1">
               Description
             </label>
             <textarea
-              id="description"
+              id="channel-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full p-2 border rounded-md focus:ring-[#004C54] focus:border-[#004C54]"
-              placeholder="What's this channel about?"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-[#004C54] focus:border-[#004C54]"
+              placeholder="Enter channel description"
               rows={3}
             />
           </div>
           
           <div className="mb-4">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={isPublic}
-                onChange={(e) => setIsPublic(e.target.checked)}
-                className="h-4 w-4 text-[#004C54] focus:ring-[#004C54] border-gray-300 rounded"
-              />
-              <span className="ml-2 text-sm text-gray-700">Make this channel public</span>
-            </label>
-            <p className="text-xs text-gray-500 mt-1">
-              Public channels can be discovered and joined by anyone. Private channels require an invite code.
+            <span className="block text-sm font-medium text-gray-700 mb-2">
+              Privacy Setting
+            </span>
+            <div className="flex space-x-4 mb-2">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="privacy"
+                  checked={isPublic}
+                  onChange={() => setIsPublic(true)}
+                  className="mr-2"
+                />
+                <span>Public</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="privacy"
+                  checked={!isPublic}
+                  onChange={() => setIsPublic(false)}
+                  className="mr-2"
+                />
+                <span>Private</span>
+              </label>
+            </div>
+            <p className="text-xs text-gray-500">
+              {isPublic 
+                ? 'Public channels can be joined by anyone' 
+                : 'Private channels require an invite code to join'}
             </p>
           </div>
           
           {!isPublic && (
-            <>
-              <div className="mb-4">
-                <label htmlFor="inviteCode" className="flex items-center text-sm font-medium text-gray-700 mb-1">
-                  <FaKey className="mr-2 text-[#004C54]" />
-                  Invite Code*
+            <div className="mb-4 p-3 bg-gray-50 rounded-md border border-gray-200">
+              <div className="flex justify-between items-center mb-2">
+                <label htmlFor="invite-code" className="block text-sm font-medium text-gray-700">
+                  <FaKey className="inline mr-1 text-[#004C54]" /> Invite Code
                 </label>
-                <div className="flex">
-                  <input
-                    type="text"
-                    id="inviteCode"
-                    value={inviteCode}
-                    onChange={(e) => setInviteCode(e.target.value)}
-                    className="flex-1 p-2 border rounded-l-md focus:ring-[#004C54] focus:border-[#004C54]"
-                    placeholder="Invite code for this channel"
-                    required={!isPublic}
-                  />
-                  <button
-                    type="button"
-                    onClick={generateInviteCode}
-                    className="bg-[#004C54] text-white px-3 py-2 rounded-r-md hover:bg-[#003940]"
-                  >
-                    <FaRandom size={14} />
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Share this code with people you want to invite to this channel.
-                </p>
+                <button
+                  type="button"
+                  onClick={generateInviteCode}
+                  className="text-xs text-[#004C54] hover:underline flex items-center"
+                >
+                  <FaRandom className="mr-1" /> Generate New
+                </button>
+              </div>
+              <div className="flex">
+                <input
+                  id="invite-code"
+                  type="text"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-[#004C54] focus:border-[#004C54] font-mono"
+                  placeholder="Invite code"
+                  required={!isPublic}
+                />
               </div>
               
-              <div className="mb-4">
-                <label htmlFor="inviteEmails" className="flex items-center text-sm font-medium text-gray-700 mb-1">
-                  <FaUserPlus className="mr-2 text-[#004C54]" />
-                  Invite Users (Optional)
+              <div className="mt-3">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <FaCalendarAlt className="inline mr-1" /> Invite Code Expiry (Optional)
                 </label>
-                <textarea
-                  id="inviteEmails"
-                  value={inviteEmails}
-                  onChange={(e) => setInviteEmails(e.target.value)}
-                  className="w-full p-2 border rounded-md focus:ring-[#004C54] focus:border-[#004C54]"
-                  placeholder="Enter email addresses separated by commas"
-                  rows={2}
+                <input
+                  type="date"
+                  value={inviteCodeExpiry}
+                  onChange={(e) => setInviteCodeExpiry(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  min={new Date().toISOString().split('T')[0]}
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  You can invite users now or later from the channel settings.
+                <p className="mt-1 text-xs text-gray-500">
+                  Set an expiration date for this invite code (optional)
                 </p>
               </div>
-            </>
+            </div>
           )}
           
           <div className="mb-4">
-            <label htmlFor="adminEmails" className="flex items-center text-sm font-medium text-gray-700 mb-1">
-              <FaUserShield className="mr-2 text-[#004C54]" />
-              Channel Admins (Optional)
+            <label htmlFor="invite-emails" className="block text-sm font-medium text-gray-700 mb-1">
+              <FaUserPlus className="inline mr-1" /> Invite Users (Optional)
             </label>
             <textarea
-              id="adminEmails"
-              value={adminEmails}
-              onChange={(e) => setAdminEmails(e.target.value)}
-              className="w-full p-2 border rounded-md focus:ring-[#004C54] focus:border-[#004C54]"
+              id="invite-emails"
+              value={inviteEmails}
+              onChange={(e) => setInviteEmails(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-[#004C54] focus:border-[#004C54]"
               placeholder="Enter email addresses separated by commas"
               rows={2}
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Admins can manage channel settings, members, and content. You are automatically an admin.
+            <p className="mt-1 text-xs text-gray-500">
+              Enter email addresses of users you want to invite, separated by commas
             </p>
           </div>
           
-          {error && (
-            <div className="mb-4 p-2 bg-red-50 text-red-600 text-sm rounded-md">
-              {error}
-            </div>
-          )}
+          <div className="mb-6">
+            <label htmlFor="admin-emails" className="block text-sm font-medium text-gray-700 mb-1">
+              <FaUserShield className="inline mr-1" /> Add Admins (Optional)
+            </label>
+            <textarea
+              id="admin-emails"
+              value={adminEmails}
+              onChange={(e) => setAdminEmails(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-[#004C54] focus:border-[#004C54]"
+              placeholder="Enter email addresses separated by commas"
+              rows={2}
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Enter email addresses of users you want to make admins, separated by commas
+            </p>
+          </div>
+          
+          <div className="flex justify-end space-x-3 border-t pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+              disabled={isLoading}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940]"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Creating...' : 'Create Channel'}
+            </button>
+          </div>
         </form>
-        
-        <div className="flex justify-end space-x-3 p-4 border-t sticky bottom-0 bg-white">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-            disabled={isLoading}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            form="createChannelForm"
-            className="px-4 py-2 text-sm bg-[#004C54] text-white rounded-md hover:bg-[#003940] disabled:bg-gray-400"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Creating...' : 'Create Channel'}
-          </button>
-        </div>
       </div>
     </div>
   );

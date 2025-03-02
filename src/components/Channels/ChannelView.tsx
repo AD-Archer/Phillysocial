@@ -1,6 +1,6 @@
 'use client';
-import { useState, useEffect, FormEvent } from 'react';
-import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { doc, getDoc, updateDoc, arrayUnion, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { Channel } from '@/types/Channel';
 import { useAuth } from '@/lib/context/AuthContext';
@@ -8,9 +8,9 @@ import ChannelHeader from './ChannelHeader';
 import ManageChannelMembersModal from '../../models/ManageChannelMembersModal';
 import InviteCodeBanner from './InviteCodeBanner';
 import ChannelManagementPanel from './ChannelManagementPanel';
-import { FaUserFriends, FaExclamationTriangle, FaBan, FaTrash, FaPaperPlane, FaCog } from 'react-icons/fa';
-import Link from 'next/link';
+import { FaUserFriends, FaExclamationTriangle } from 'react-icons/fa';
 import { useToast } from '../../layouts/Toast';
+import { useRouter } from 'next/navigation';
 
 interface ChannelViewProps {
   channelId: string | null;
@@ -24,7 +24,7 @@ const ChannelView: React.FC<ChannelViewProps> = ({ channelId }) => {
   const [showManagementPanel, setShowManagementPanel] = useState(false);
   const { user } = useAuth();
   const { showToast } = useToast();
-  const [message, setMessage] = useState('');
+  const router = useRouter();
 
   useEffect(() => {
     const fetchChannel = async () => {
@@ -50,19 +50,16 @@ const ChannelView: React.FC<ChannelViewProps> = ({ channelId }) => {
           id: channelDoc.id,
           name: data.name,
           description: data.description,
-          createdBy: data.createdBy,
-          createdAt: data.createdAt.toDate(),
-          members: data.members || [],
-          admins: data.admins || [data.createdBy],
           isPublic: data.isPublic,
-          inviteCode: data.inviteCode,
-          imageUrl: data.imageUrl,
-          invitedUsers: data.invitedUsers || [],
+          createdBy: data.createdBy,
+          createdAt: data.createdAt,
+          members: data.members || [],
+          admins: data.admins || [],
           bannedUsers: data.bannedUsers || [],
           mutedUsers: data.mutedUsers || [],
-          deleted: data.deleted,
-          deletedAt: data.deletedAt?.toDate(),
-          deletedBy: data.deletedBy
+          invitedUsers: data.invitedUsers || [],
+          inviteCode: data.inviteCode,
+          imageUrl: data.imageUrl || null,
         };
         
         setChannel(channelData);
@@ -77,33 +74,29 @@ const ChannelView: React.FC<ChannelViewProps> = ({ channelId }) => {
     fetchChannel();
   }, [channelId]);
 
+  // Function to check if the current user is a member
+  const isUserMember = () => {
+    if (!user || !channel) return false;
+    return channel.members.includes(user.uid);
+  };
+  
+  // Function to check if the current user is an admin
+  const isUserAdmin = () => {
+    if (!user || !channel) return false;
+    return channel.admins?.includes(user.uid) || false;
+  };
+  
+  // Function to handle channel updates
   const handleChannelUpdate = (updatedChannel: Channel) => {
     setChannel(updatedChannel);
   };
-
-  const isUserMember = () => {
-    if (!channel || !user) return false;
-    return channel.members.includes(user.uid);
-  };
-
-  const isUserAdmin = () => {
-    if (!channel || !user) return false;
-    return channel.admins?.includes(user.uid) || false;
-  };
-
-  const isUserBanned = () => {
-    if (!channel || !user) return false;
-    return channel.bannedUsers?.includes(user.uid);
-  };
-
-  // Function to handle auto-joining a channel when interacting
+  
+  // Function to handle auto-joining a public channel
   const handleAutoJoin = async () => {
-    if (!channel || !user || isUserMember() || isUserBanned()) return;
+    if (!user || !channel) return;
     
     try {
       const channelRef = doc(db, 'channels', channel.id);
-      
-      // Add user to members
       await updateDoc(channelRef, {
         members: arrayUnion(user.uid)
       });
@@ -121,51 +114,20 @@ const ChannelView: React.FC<ChannelViewProps> = ({ channelId }) => {
       showToast('Failed to join channel', 'error');
     }
   };
-
-  // This function would be called when a user interacts with the channel
-  const handleInteraction = () => {
-    if (!isUserMember() && channel?.isPublic) {
-      handleAutoJoin();
-    }
-  };
-
-  // Function to handle sending a message
-  const handleSendMessage = async (e: FormEvent) => {
-    e.preventDefault();
+  
+  // Function to handle channel deletion
+  const handleDeleteChannel = async () => {
+    if (!user || !channel || !isUserAdmin()) return;
     
-    if (!message.trim() || !channel || !user) return;
-    
-    // Don't allow banned or muted users to send messages
-    if (isUserBanned() || channel.mutedUsers?.includes(user.uid)) {
-      showToast('You cannot send messages in this channel', 'error');
-      return;
-    }
-    
-    // If user is not a member and channel is public, join the channel first
-    if (!isUserMember() && channel.isPublic) {
+    if (window.confirm(`Are you sure you want to delete the channel "${channel.name}"? This action cannot be undone and will permanently delete all channel data.`)) {
       try {
-        await handleAutoJoin();
+        await deleteDoc(doc(db, 'channels', channel.id));
+        showToast('Channel deleted successfully', 'success');
+        router.push('/dashboard');
       } catch (error) {
-        console.error('Error joining channel:', error);
-        showToast('Failed to join channel', 'error');
-        return;
+        console.error('Error deleting channel:', error);
+        showToast('Failed to delete channel', 'error');
       }
-    }
-    
-    // If user is still not a member and channel is not public, show error
-    if (!isUserMember() && !channel.isPublic) {
-      showToast('You need to join this channel to send messages', 'error');
-      return;
-    }
-    
-    try {
-      // Here you would add the message to Firestore
-      // For now, we'll just show a toast and clear the input
-      showToast('Message sent successfully', 'success');
-      setMessage('');
-    } catch (error) {
-      console.error('Error sending message:', error);
-      showToast('Failed to send message', 'error');
     }
   };
 
@@ -210,56 +172,14 @@ const ChannelView: React.FC<ChannelViewProps> = ({ channelId }) => {
     );
   }
 
-  // Check if user has access to this channel
-  if (!channel.isPublic && !isUserMember() && !channel.invitedUsers?.includes(user?.email || '')) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-        <FaExclamationTriangle className="text-yellow-500 mb-4" size={32} />
-        <h2 className="text-xl font-semibold text-gray-700 mb-2">Private Channel</h2>
-        <p className="text-gray-500 max-w-md mb-4">
-          This is a private channel. You need an invite code to join.
-        </p>
-      </div>
-    );
-  }
-
-  // Check if user is banned from this channel
-  if (isUserBanned()) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-        <FaBan className="text-red-500 mb-4" size={32} />
-        <h2 className="text-xl font-semibold text-gray-700 mb-2">You've Been Banned</h2>
-        <p className="text-gray-500 max-w-md mb-4">
-          You have been banned from the channel "{channel.name}". 
-          If you believe this is a mistake, please contact a channel administrator.
-        </p>
-      </div>
-    );
-  }
-
-  // Check if channel has been deleted
-  if (channel && channel.deleted) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-        <FaTrash className="text-red-500 mb-4" size={32} />
-        <h2 className="text-xl font-semibold text-gray-700 mb-2">Channel Deleted</h2>
-        <p className="text-gray-500 max-w-md mb-4">
-          This channel has been deleted by an administrator.
-        </p>
-        <Link href="/dashboard" className="text-[#004C54] hover:underline">
-          Return to Dashboard
-        </Link>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col">
       <ChannelHeader 
         channel={channel} 
         onShowMembers={() => setShowMembersModal(true)}
         onUpdate={handleChannelUpdate}
         onShowManagement={() => setShowManagementPanel(!showManagementPanel)}
+        onDeleteChannel={handleDeleteChannel}
       />
       
       {/* Show invitation banner if user is invited but not a member */}
@@ -274,75 +194,17 @@ const ChannelView: React.FC<ChannelViewProps> = ({ channelId }) => {
         />
       )}
       
-      <div className="flex-1 overflow-y-auto p-4">
-        {/* Channel content will go here */}
-        <div className="flex flex-col items-center justify-center h-full">
-          <p className="text-gray-500 mb-4">Channel content will be displayed here</p>
-          
-          <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
-            {!isUserMember() && channel.isPublic ? (
-              <button
-                onClick={handleAutoJoin}
-                className="px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940] flex items-center justify-center"
-              >
-                <FaUserFriends className="mr-2" />
-                Join Channel
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowMembersModal(true)}
-                className="px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940] flex items-center justify-center"
-              >
-                <FaUserFriends className="mr-2" />
-                {isUserAdmin() ? 'Manage Members' : 'View Members'}
-              </button>
-            )}
-            
-            {/* Channel Management Button */}
-            <button
-              onClick={() => setShowManagementPanel(!showManagementPanel)}
-              className="px-4 py-2 bg-[#046A38] text-white rounded-md hover:bg-[#035C2F] flex items-center justify-center"
-            >
-              <FaCog className="mr-2" />
-              {showManagementPanel ? 'Hide Management Panel' : 'Channel Management'}
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      {/* Message input */}
-      <div className="p-4 border-t">
-        <form onSubmit={handleSendMessage} className="flex items-center">
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder={
-              isUserBanned() 
-                ? "You've been banned from this channel" 
-                : channel?.mutedUsers?.includes(user?.uid || '') 
-                  ? "You've been muted in this channel"
-                  : "Type a message..."
-            }
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-[#004C54]"
-            disabled={isUserBanned() || channel?.mutedUsers?.includes(user?.uid || '')}
-          />
+      {/* Channel Actions */}
+      <div className="p-4 flex flex-wrap justify-center gap-3">
+        {/* Join button for non-members */}
+        {!isUserMember() && channel.isPublic && (
           <button
-            type="submit"
-            className={`px-4 py-2 rounded-r-md flex items-center justify-center ${
-              isUserBanned() || channel?.mutedUsers?.includes(user?.uid || '')
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-[#004C54] text-white hover:bg-[#003940]'
-            }`}
-            disabled={isUserBanned() || channel?.mutedUsers?.includes(user?.uid || '')}
+            onClick={handleAutoJoin}
+            className="px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940] flex items-center justify-center"
           >
-            <FaPaperPlane />
+            <FaUserFriends className="mr-2" />
+            Join Channel
           </button>
-        </form>
-        {!isUserMember() && channel?.isPublic && (
-          <p className="text-xs text-gray-500 mt-1">
-            Sending a message will automatically add you to this channel
-          </p>
         )}
       </div>
       
