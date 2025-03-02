@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FaUsers, FaCog, FaKey, FaLock, FaGlobe, FaTrash, FaEdit, FaUserShield, FaRandom, FaCalendarAlt } from 'react-icons/fa';
+import { FaUsers, FaCog, FaLock, FaGlobe, FaTrash, FaEdit, FaUserShield, FaRandom, FaCalendarAlt, FaTimes, FaExclamationTriangle, FaSpinner, FaClipboard, FaCheck } from 'react-icons/fa';
 import { Channel } from '@/types/Channel';
 import { useAuth } from '@/lib/context/AuthContext';
 import ManageChannelMembersModal from '../../models/ManageChannelMembersModal';
@@ -9,6 +9,7 @@ import { doc, updateDoc, deleteDoc, } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useToast } from '../../layouts/Toast';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ChannelManagementPanelProps {
   channel: Channel;
@@ -29,6 +30,7 @@ const ChannelManagementPanel: React.FC<ChannelManagementPanelProps> = ({
   const [isUpdating, setIsUpdating] = useState(false);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [inviteCodeExpiry, setInviteCodeExpiry] = useState<string>('');
+  const [codeCopied, setCodeCopied] = useState(false);
   const { user } = useAuth();
   const { showToast } = useToast();
   const router = useRouter();
@@ -42,11 +44,14 @@ const ChannelManagementPanel: React.FC<ChannelManagementPanelProps> = ({
 
   const isUserAdmin = () => {
     if (!user) return false;
-    return channel.admins?.includes(user.uid) || false;
+    return channel.admins?.includes(user.uid) || channel.createdBy === user.uid || false;
   };
 
   const handleTogglePrivacy = async () => {
-    if (!isUserAdmin()) return;
+    if (!isUserAdmin()) {
+      showToast('Only admins can change channel privacy settings', 'error');
+      return;
+    }
     
     setIsUpdating(true);
     
@@ -93,7 +98,10 @@ const ChannelManagementPanel: React.FC<ChannelManagementPanelProps> = ({
   };
 
   const handleGenerateNewInviteCode = async () => {
-    if (!isUserAdmin()) return;
+    if (!isUserAdmin()) {
+      showToast('Only admins can generate invite codes', 'error');
+      return;
+    }
     
     setIsGeneratingCode(true);
     
@@ -125,7 +133,10 @@ const ChannelManagementPanel: React.FC<ChannelManagementPanelProps> = ({
   };
 
   const handleUpdateInviteCodeExpiry = async () => {
-    if (!isUserAdmin()) return;
+    if (!isUserAdmin()) {
+      showToast('Only admins can update invite code expiry', 'error');
+      return;
+    }
     
     setIsUpdating(true);
     
@@ -155,7 +166,10 @@ const ChannelManagementPanel: React.FC<ChannelManagementPanelProps> = ({
   };
 
   const handleDeleteChannel = async () => {
-    if (!isUserAdmin()) return;
+    if (!isUserAdmin()) {
+      showToast('Only admins can delete channels', 'error');
+      return;
+    }
     
     setIsDeleting(true);
     
@@ -175,256 +189,366 @@ const ChannelManagementPanel: React.FC<ChannelManagementPanelProps> = ({
     }
   };
 
+  const copyInviteCode = () => {
+    if (!channel.inviteCode) return;
+    
+    navigator.clipboard.writeText(channel.inviteCode)
+      .then(() => {
+        setCodeCopied(true);
+        showToast('Invite code copied to clipboard!', 'success');
+        setTimeout(() => setCodeCopied(false), 2000);
+      })
+      .catch(() => {
+        showToast('Failed to copy invite code', 'error');
+      });
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow-md p-4 mb-4">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="bg-white rounded-lg shadow-md p-4 mb-4"
+    >
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold text-[#004C54]">Channel Management</h2>
         {onClose && (
-          <button 
+          <motion.button 
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
+            className="p-1 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+            aria-label="Close panel"
           >
-            &times;
-          </button>
+            <FaTimes />
+          </motion.button>
         )}
       </div>
       
       <div className="flex border-b mb-4">
-        <button
+        <motion.button
+          whileHover={{ scale: 1.05 }}
           onClick={() => setActiveTab('members')}
           className={`flex items-center px-4 py-2 ${
             activeTab === 'members' 
               ? 'border-b-2 border-[#004C54] text-[#004C54]' 
-              : 'text-gray-500'
-          }`}
+              : 'text-gray-500 hover:text-gray-700'
+          } transition-colors`}
         >
           <FaUsers className="mr-2" />
           Members
-        </button>
-        <button
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
           onClick={() => setActiveTab('settings')}
           className={`flex items-center px-4 py-2 ${
             activeTab === 'settings' 
               ? 'border-b-2 border-[#004C54] text-[#004C54]' 
-              : 'text-gray-500'
-          }`}
+              : 'text-gray-500 hover:text-gray-700'
+          } transition-colors`}
         >
           <FaCog className="mr-2" />
           Settings
-        </button>
+        </motion.button>
       </div>
       
-      {activeTab === 'members' && (
-        <div>
-          <div className="mb-4">
-            <h3 className="text-md font-medium text-gray-700 mb-2">Member Management</h3>
-            <p className="text-sm text-gray-600 mb-3">
-              View and manage channel members, assign admin roles, or moderate users.
-            </p>
-            
-            <button
-              onClick={() => setShowMembersModal(true)}
-              className="w-full flex items-center justify-center px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940]"
-            >
-              <FaUserShield className="mr-2" />
-              {isUserAdmin() ? 'Manage Members' : 'View Members'}
-            </button>
-          </div>
-          
-          <div className="mb-4">
-            <h3 className="text-md font-medium text-gray-700 mb-2">Channel Stats</h3>
-            <div className="bg-gray-50 p-3 rounded-md">
-              <div className="flex justify-between mb-2">
-                <span className="text-sm text-gray-600">Total Members:</span>
-                <span className="text-sm font-medium">{channel.members.length}</span>
-              </div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm text-gray-600">Admins:</span>
-                <span className="text-sm font-medium">{channel.admins?.length || 1}</span>
-              </div>
-              {channel.invitedUsers && (
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm text-gray-600">Invited Users:</span>
-                  <span className="text-sm font-medium">{channel.invitedUsers.length}</span>
-                </div>
-              )}
-              {channel.bannedUsers && (
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Banned Users:</span>
-                  <span className="text-sm font-medium">{channel.bannedUsers.length}</span>
-                </div>
-              )}
+      <AnimatePresence mode="wait">
+        {activeTab === 'members' && (
+          <motion.div
+            key="members"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="mb-4">
+              <h3 className="text-md font-medium text-gray-700 mb-2">Member Management</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                View and manage channel members, assign admin roles, or moderate users.
+              </p>
+              
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowMembersModal(true)}
+                className="w-full flex items-center justify-center px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940] transition-colors shadow-sm"
+              >
+                <FaUserShield className="mr-2" />
+                {isUserAdmin() ? 'Manage Members' : 'View Members'}
+              </motion.button>
             </div>
-          </div>
-        </div>
-      )}
-      
-      {activeTab === 'settings' && isUserAdmin() && (
-        <div>
-          <div className="mb-4">
-            <h3 className="text-md font-medium text-gray-700 mb-2">Channel Settings</h3>
-            <p className="text-sm text-gray-600 mb-3">
-              Modify channel details, privacy settings, and other configurations.
-            </p>
             
-            <button
-              onClick={() => setShowEditModal(true)}
-              className="w-full flex items-center justify-center px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940] mb-3"
-            >
-              <FaEdit className="mr-2" />
-              Edit Channel Details
-            </button>
-            
-            <button
-              onClick={handleTogglePrivacy}
-              disabled={isUpdating}
-              className="w-full flex items-center justify-center px-4 py-2 bg-[#046A38] text-white rounded-md hover:bg-[#035C2F] mb-3"
-            >
-              {channel.isPublic ? (
-                <>
-                  <FaLock className="mr-2" />
-                  Make Channel Private
-                </>
-              ) : (
-                <>
-                  <FaGlobe className="mr-2" />
-                  Make Channel Public
-                </>
-              )}
-            </button>
+            <div className="mb-4">
+              <h3 className="text-md font-medium text-gray-700 mb-2">Channel Stats</h3>
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.1 }}
+                className="bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-md shadow-sm"
+              >
+                <div className="flex justify-between mb-3">
+                  <span className="text-sm text-gray-600">Total Members:</span>
+                  <span className="text-sm font-medium">{channel.members.length}</span>
+                </div>
+                <div className="flex justify-between mb-3">
+                  <span className="text-sm text-gray-600">Admins:</span>
+                  <span className="text-sm font-medium">{channel.admins?.length || 1}</span>
+                </div>
+                {channel.invitedUsers && (
+                  <div className="flex justify-between mb-3">
+                    <span className="text-sm text-gray-600">Invited Users:</span>
+                    <span className="text-sm font-medium">{channel.invitedUsers.length}</span>
+                  </div>
+                )}
+                {channel.bannedUsers && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Banned Users:</span>
+                    <span className="text-sm font-medium">{channel.bannedUsers.length}</span>
+                  </div>
+                )}
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+        
+        {activeTab === 'settings' && (
+          <motion.div
+            key="settings"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="mb-4">
+              <h3 className="text-md font-medium text-gray-700 mb-2">Channel Information</h3>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowEditModal(true)}
+                disabled={!isUserAdmin()}
+                className={`w-full flex items-center justify-center px-4 py-2 rounded-md shadow-sm mb-3 ${
+                  isUserAdmin() 
+                    ? 'bg-[#004C54] text-white hover:bg-[#003940]' 
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                } transition-colors`}
+              >
+                <FaEdit className="mr-2" />
+                Edit Channel Details
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleTogglePrivacy}
+                disabled={!isUserAdmin() || isUpdating}
+                className={`w-full flex items-center justify-center px-4 py-2 rounded-md shadow-sm ${
+                  isUserAdmin() 
+                    ? 'bg-[#046A38] text-white hover:bg-[#035C2F]' 
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                } transition-colors`}
+              >
+                {isUpdating ? (
+                  <>
+                    <FaSpinner className="animate-spin mr-2" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    {channel.isPublic ? <FaLock className="mr-2" /> : <FaGlobe className="mr-2" />}
+                    {channel.isPublic ? 'Make Channel Private' : 'Make Channel Public'}
+                  </>
+                )}
+              </motion.button>
+            </div>
             
             {!channel.isPublic && (
-              <div className="bg-gray-50 p-3 rounded-md mb-3">
-                <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                  <FaKey className="mr-2 text-[#004C54]" />
-                  Invite Code
-                </h4>
-                <div className="flex items-center">
-                  <code className="bg-gray-100 px-2 py-1 rounded text-sm font-mono flex-1 overflow-x-auto">
-                    {channel.inviteCode}
-                  </code>
-                </div>
-                
-                <div className="mt-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <FaCalendarAlt className="inline mr-1" /> Invite Code Expiry (Optional)
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={inviteCodeExpiry}
-                      onChange={(e) => setInviteCodeExpiry(e.target.value)}
-                      className="flex-1 p-2 border border-gray-300 rounded-md text-sm"
-                      min={new Date().toISOString().split('T')[0]}
-                    />
-                    <button
-                      onClick={handleUpdateInviteCodeExpiry}
-                      disabled={isUpdating}
-                      className="px-2 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm"
-                    >
-                      Update
-                    </button>
+              <div className="mb-4">
+                <h3 className="text-md font-medium text-gray-700 mb-2">Invite Code</h3>
+                <div className="bg-gray-50 p-3 rounded-md border border-gray-200 mb-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-gray-600">Current Code:</span>
+                    <div className="flex items-center">
+                      <code className="bg-gray-100 px-2 py-1 rounded text-sm font-mono">
+                        {channel.inviteCode}
+                      </code>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={copyInviteCode}
+                        className="ml-2 text-gray-500 hover:text-gray-700 p-1"
+                        title="Copy to clipboard"
+                      >
+                        {codeCopied ? <FaCheck className="text-green-500" /> : <FaClipboard />}
+                      </motion.button>
+                    </div>
                   </div>
+                  
                   {channel.inviteCodeExpiry && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Current expiry: {new Date(channel.inviteCodeExpiry).toLocaleDateString()}
-                    </p>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">Expires:</span>
+                      <span className="font-medium">
+                        {new Date(channel.inviteCodeExpiry).toLocaleDateString()}
+                      </span>
+                    </div>
                   )}
                 </div>
                 
-                <div className="mt-3">
-                  <button
+                <div className="flex flex-col space-y-3">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={handleGenerateNewInviteCode}
-                    disabled={isGeneratingCode}
-                    className="w-full flex items-center justify-center px-3 py-1.5 bg-[#004C54] text-white rounded-md hover:bg-[#003940] text-sm"
+                    disabled={!isUserAdmin() || isGeneratingCode}
+                    className={`flex items-center justify-center px-4 py-2 rounded-md shadow-sm ${
+                      isUserAdmin() 
+                        ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    } transition-colors`}
                   >
-                    <FaRandom className="mr-2" />
-                    Generate New Invite Code
-                  </button>
+                    {isGeneratingCode ? (
+                      <>
+                        <FaSpinner className="animate-spin mr-2" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <FaRandom className="mr-2" />
+                        Generate New Invite Code
+                      </>
+                    )}
+                  </motion.button>
+                  
+                  <div className="flex items-end space-x-2">
+                    <div className="flex-1">
+                      <label htmlFor="inviteCodeExpiry" className="block text-sm font-medium text-gray-700 mb-1">
+                        Set Expiry Date
+                      </label>
+                      <div className="flex">
+                        <div className="relative flex-1">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <FaCalendarAlt className="text-gray-400" />
+                          </div>
+                          <input
+                            type="date"
+                            id="inviteCodeExpiry"
+                            value={inviteCodeExpiry}
+                            onChange={(e) => setInviteCodeExpiry(e.target.value)}
+                            min={new Date().toISOString().split('T')[0]}
+                            className="pl-10 block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004C54] focus:border-[#004C54] sm:text-sm"
+                            disabled={!isUserAdmin()}
+                          />
+                        </div>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={handleUpdateInviteCodeExpiry}
+                          disabled={!isUserAdmin() || isUpdating}
+                          className={`ml-2 px-3 py-2 rounded-md ${
+                            isUserAdmin() 
+                              ? 'bg-[#004C54] text-white hover:bg-[#003940]' 
+                              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          } transition-colors`}
+                        >
+                          {isUpdating ? <FaSpinner className="animate-spin" /> : 'Update'}
+                        </motion.button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                
-                <p className="mt-2 text-xs text-gray-500">
-                  Share this code with people you want to invite to this channel
-                </p>
               </div>
             )}
-          </div>
-          
-          <div className="mb-4">
-            <h3 className="text-md font-medium text-gray-700 mb-2">Danger Zone</h3>
-            <p className="text-sm text-gray-600 mb-3">
-              These actions cannot be undone. Please be certain.
-            </p>
             
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="w-full flex items-center justify-center px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
-            >
-              <FaTrash className="mr-2" />
-              Delete Channel
-            </button>
-          </div>
-        </div>
-      )}
-      
-      {activeTab === 'settings' && !isUserAdmin() && (
-        <div className="text-center py-4">
-          <p className="text-gray-600">
-            You need admin permissions to access channel settings.
-          </p>
-        </div>
-      )}
+            <div className="mt-6 border-t pt-4">
+              <h3 className="text-md font-medium text-red-600 mb-2">Danger Zone</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Permanently delete this channel and all its content. This action cannot be undone.
+              </p>
+              
+              {!showDeleteConfirm ? (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={!isUserAdmin()}
+                  className={`w-full flex items-center justify-center px-4 py-2 rounded-md ${
+                    isUserAdmin() 
+                      ? 'bg-red-500 text-white hover:bg-red-600' 
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  } transition-colors shadow-sm`}
+                >
+                  <FaTrash className="mr-2" />
+                  Delete Channel
+                </motion.button>
+              ) : (
+                <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                  <div className="flex items-start mb-3">
+                    <FaExclamationTriangle className="text-red-500 mt-0.5 mr-2 flex-shrink-0" />
+                    <p className="text-sm text-red-600">
+                      Are you sure you want to delete this channel? This action cannot be undone and all channel data will be permanently lost.
+                    </p>
+                  </div>
+                  <div className="flex space-x-2">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleDeleteChannel}
+                      disabled={isDeleting}
+                      className="flex-1 flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors shadow-sm"
+                    >
+                      {isDeleting ? (
+                        <>
+                          <FaSpinner className="animate-spin mr-2" />
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <FaTrash className="mr-2" />
+                          Yes, Delete
+                        </>
+                      )}
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setShowDeleteConfirm(false)}
+                      disabled={isDeleting}
+                      className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors shadow-sm"
+                    >
+                      Cancel
+                    </motion.button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Modals */}
-      {showMembersModal && (
-        <ManageChannelMembersModal
-          channel={channel}
-          onClose={() => setShowMembersModal(false)}
-          onUpdate={onUpdate}
-        />
-      )}
+      <AnimatePresence>
+        {showMembersModal && (
+          <ManageChannelMembersModal
+            channel={channel}
+            onClose={() => setShowMembersModal(false)}
+            onUpdate={onUpdate}
+          />
+        )}
+      </AnimatePresence>
       
-      {showEditModal && (
-        <EditChannelModal
-          channel={channel}
-          onClose={() => setShowEditModal(false)}
-          onUpdate={onUpdate}
-        />
-      )}
-      
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <div className="flex items-center mb-4 text-red-500">
-              <FaTrash size={24} className="mr-3" />
-              <h3 className="text-lg font-semibold">Delete Channel</h3>
-            </div>
-            
-            <p className="mb-6 text-gray-700">
-              Are you sure you want to delete <strong>{channel.name}</strong>? This action cannot be undone and will permanently delete all channel data.
-            </p>
-            
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-                disabled={isDeleting}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteChannel}
-                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center"
-                disabled={isDeleting}
-              >
-                {isDeleting ? 'Deleting...' : 'Delete Channel'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      <AnimatePresence>
+        {showEditModal && (
+          <EditChannelModal
+            channel={channel}
+            onClose={() => setShowEditModal(false)}
+            onUpdate={(updatedChannel) => {
+              onUpdate(updatedChannel);
+              setShowEditModal(false);
+              showToast('Channel updated successfully', 'success');
+            }}
+          />
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };
 

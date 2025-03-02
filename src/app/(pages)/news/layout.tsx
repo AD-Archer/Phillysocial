@@ -55,7 +55,7 @@ export default function NewsLayout({
 
       {/* Profile Dropdown */}
       {isProfileOpen && (
-        <div className="absolute right-4 top-16 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+        <div className="absolute right-4 top-16 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-[60]">
           <div className="py-1">
             <button
               onClick={handleSignOut}

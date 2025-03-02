@@ -71,28 +71,28 @@ const Toast: React.FC<ToastProps> = ({ message, type, duration = 3000, onClose }
   const getToastStyles = () => {
     switch (type) {
       case 'success':
-        return 'bg-green-100 text-green-800 border-green-300';
+        return 'bg-[#046A38] text-white border-[#A5ACAF]';
       case 'info':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
+        return 'bg-[#004C54] text-white border-[#A5ACAF]';
       case 'warning':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+        return 'bg-[#FFD700] text-[#003940] border-[#003940]';
       case 'error':
-        return 'bg-red-100 text-red-800 border-red-300';
+        return 'bg-[#C41E3A] text-white border-[#A5ACAF]';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
+        return 'bg-[#004C54] text-white border-[#A5ACAF]';
     }
   };
 
   const getToastIcon = () => {
     switch (type) {
       case 'success':
-        return <FaCheck className="text-green-500" />;
+        return <FaCheck className="text-white" />;
       case 'info':
-        return <FaInfo className="text-blue-500" />;
+        return <FaInfo className="text-white" />;
       case 'warning':
-        return <FaExclamationTriangle className="text-yellow-500" />;
+        return <FaExclamationTriangle className="text-[#003940]" />;
       case 'error':
-        return <FaTimes className="text-red-500" />;
+        return <FaTimes className="text-white" />;
       default:
         return null;
     }
@@ -100,7 +100,7 @@ const Toast: React.FC<ToastProps> = ({ message, type, duration = 3000, onClose }
 
   return (
     <div
-      className={`max-w-sm w-full shadow-lg rounded-lg pointer-events-auto border ${getToastStyles()} transition-opacity duration-300`}
+      className={`max-w-sm w-full shadow-lg rounded-lg pointer-events-auto border ${getToastStyles()} transition-all duration-300 transform hover:scale-105`}
       role="alert"
     >
       <div className="p-3 flex items-start">
@@ -114,7 +114,7 @@ const Toast: React.FC<ToastProps> = ({ message, type, duration = 3000, onClose }
         </div>
         <div className="ml-4 flex-shrink-0 flex">
           <button
-            className="inline-flex text-gray-400 hover:text-gray-500 focus:outline-none"
+            className="inline-flex text-white/70 hover:text-white focus:outline-none"
             onClick={onClose}
           >
             <span className="sr-only">Close</span>

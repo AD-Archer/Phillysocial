@@ -16,4 +16,5 @@ export interface Channel {
   deleted?: boolean; // Whether the channel has been deleted
   deletedAt?: Date; // When the channel was deleted
   deletedBy?: string; // Who deleted the channel
+  category?: string; // Category for the channel (sports, food, events, etc.)
 } 

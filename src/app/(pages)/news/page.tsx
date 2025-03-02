@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import NewsFeed from '@/components/NewsFeed';
-import { FaNewspaper, FaFilter, FaTags, FaCheckSquare, FaRegSquare } from 'react-icons/fa';
+import { FaNewspaper, FaFilter, FaTags, FaCheckSquare, FaRegSquare, FaSync } from 'react-icons/fa';
 import Link from 'next/link';
 
 export default function NewsPage() {
@@ -17,6 +17,8 @@ export default function NewsPage() {
   const [phillyNewsOnly, setPhillyNewsOnly] = useState(
     searchParams.get('phillyOnly') !== 'false'
   );
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     // Update phillyNewsOnly state when URL changes
@@ -61,6 +63,22 @@ export default function NewsPage() {
     router.push(`/news?${params.toString()}`);
   };
 
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    // Force a refresh of the NewsFeed component by changing its key
+    setRefreshKey(prev => prev + 1);
+    
+    // Reset to page 1
+    const params = new URLSearchParams(searchParams);
+    params.set('page', '1');
+    router.push(`/news?${params.toString()}`);
+    
+    // Simulate a delay to show the refresh animation
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 1000);
+  };
+
   const categories = [
     { id: null, name: 'All News' },
     { id: 'general', name: 'General' },
@@ -94,6 +112,17 @@ export default function NewsPage() {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3">
+            {/* Refresh Button */}
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="flex items-center justify-center text-gray-700 hover:text-[#004C54] transition-colors px-3 py-2 bg-white rounded-md shadow-sm"
+              aria-label="Refresh news feed"
+            >
+              <FaSync className={`w-5 h-5 mr-2 ${isRefreshing ? 'animate-spin text-[#004C54]' : ''}`} />
+              <span className="font-medium">Refresh</span>
+            </button>
+            
             {/* Philly News Toggle */}
             <button 
               onClick={togglePhillyNewsFilter}
@@ -166,6 +195,7 @@ export default function NewsPage() {
       </div>
 
       <NewsFeed 
+        key={refreshKey}
         category={selectedCategory || undefined} 
         itemsPerPage={itemsPerPage}
         hidePhillyToggle={true}

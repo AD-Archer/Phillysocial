@@ -303,11 +303,11 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
-        <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white z-10">
-          <h2 className="text-lg font-semibold text-[#004C54]">
+        <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-gradient-to-r from-[#003940] to-[#046A38] text-white z-10">
+          <h2 className="text-lg font-semibold">
             {currentUserIsAdmin ? 'Manage Channel Members' : 'Channel Members'}
           </h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+          <button onClick={onClose} className="text-white hover:text-[#A5ACAF] transition-colors">
             <FaTimes />
           </button>
         </div>
@@ -446,7 +446,7 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
           <div className="flex flex-col space-y-2">
             <button
               onClick={onClose}
-              className="w-full px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940]"
+              className="w-full px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940] transition-colors"
             >
               Done
             </button>
@@ -454,7 +454,7 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
             {currentUserIsAdmin && (
               <button
                 onClick={() => setShowDeleteConfirm(true)}
-                className="w-full px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center justify-center"
+                className="w-full px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center justify-center transition-colors"
               >
                 <FaTrash className="mr-2" />
                 Delete Channel
@@ -486,14 +486,14 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                 disabled={deleteLoading}
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteChannel}
-                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center"
+                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center transition-colors"
                 disabled={deleteLoading}
               >
                 {deleteLoading ? 'Deleting...' : 'Delete Channel'}
@@ -547,7 +547,7 @@ const MemberItem: React.FC<MemberItemProps> = ({
   }, []);
   
   return (
-    <li className="flex items-center justify-between p-2 rounded-md hover:bg-gray-50">
+    <li className="flex items-center justify-between p-2 rounded-md hover:bg-gray-50 transition-colors">
       <div className="flex items-center">
         {member.photoURL ? (
           <div className="relative w-8 h-8 rounded-full overflow-hidden mr-3">
@@ -560,8 +560,8 @@ const MemberItem: React.FC<MemberItemProps> = ({
             />
           </div>
         ) : (
-          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-3">
-            <span className="text-gray-600 font-medium">
+          <div className="w-8 h-8 rounded-full bg-[#004C54] text-white flex items-center justify-center mr-3">
+            <span className="font-medium">
               {member.displayName.charAt(0).toUpperCase()}
             </span>
           </div>
@@ -571,12 +571,12 @@ const MemberItem: React.FC<MemberItemProps> = ({
           <div className="font-medium text-gray-800 flex items-center">
             {member.displayName}
             {isAdmin && (
-              <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+              <span className="ml-1 text-xs bg-[#004C54] text-white px-1.5 py-0.5 rounded">
                 Admin
               </span>
             )}
             {isCreator && (
-              <span className="ml-1 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
+              <span className="ml-1 text-xs bg-[#046A38] text-white px-1.5 py-0.5 rounded">
                 Creator
               </span>
             )}
@@ -595,7 +595,7 @@ const MemberItem: React.FC<MemberItemProps> = ({
         <div className="relative" ref={actionsRef}>
           <button
             onClick={() => setShowActions(!showActions)}
-            className="p-1.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
+            className="p-1.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
             aria-label="Member actions"
           >
             <FaEllipsisV size={14} />
@@ -608,7 +608,7 @@ const MemberItem: React.FC<MemberItemProps> = ({
                   onToggleAdmin();
                   setShowActions(false);
                 }}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center"
               >
                 <FaUserShield className="mr-2" size={14} />
                 {isAdmin ? 'Remove Admin' : 'Make Admin'}
@@ -619,7 +619,7 @@ const MemberItem: React.FC<MemberItemProps> = ({
                   if (onMute) onMute(member.uid, isMuted);
                   setShowActions(false);
                 }}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center"
               >
                 {isMuted ? (
                   <>
@@ -639,7 +639,7 @@ const MemberItem: React.FC<MemberItemProps> = ({
                   if (onBan) onBan(member.uid, isBanned);
                   setShowActions(false);
                 }}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center"
               >
                 {isBanned ? (
                   <>
@@ -659,7 +659,7 @@ const MemberItem: React.FC<MemberItemProps> = ({
                   if (onRemove) onRemove();
                   setShowActions(false);
                 }}
-                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center"
               >
                 <FaUserMinus className="mr-2" size={14} />
                 Remove from Channel
