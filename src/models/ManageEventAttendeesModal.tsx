@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { FaTimes, FaSearch, FaUserPlus, FaUserMinus, FaUserCog, FaExclamationTriangle, FaSpinner } from 'react-icons/fa';
+import { FaTimes, FaSearch, FaUserMinus, FaUserCog, FaExclamationTriangle, FaSpinner } from 'react-icons/fa';
 import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
@@ -114,7 +114,9 @@ const ManageEventAttendeesModal: React.FC<ManageEventAttendeesModalProps> = ({ i
         admins: event.admins?.filter(id => id !== attendeeId) || []
       };
       
-      onUpdate(updatedEvent);
+      if (onUpdate) {
+        onUpdate(updatedEvent);
+      }
       showToast('Attendee removed successfully', 'success');
     } catch (error) {
       console.error('Error removing attendee:', error);
@@ -155,7 +157,9 @@ const ManageEventAttendeesModal: React.FC<ManageEventAttendeesModalProps> = ({ i
           admins: event.admins?.filter(id => id !== attendeeId) || []
         };
         
-        onUpdate(updatedEvent);
+        if (onUpdate) {
+          onUpdate(updatedEvent);
+        }
         showToast('Admin status removed', 'success');
       } else {
         // Add admin status
@@ -169,7 +173,9 @@ const ManageEventAttendeesModal: React.FC<ManageEventAttendeesModalProps> = ({ i
           admins: [...(event.admins || []), attendeeId]
         };
         
-        onUpdate(updatedEvent);
+        if (onUpdate) {
+          onUpdate(updatedEvent);
+        }
         showToast('Admin status granted', 'success');
       }
     } catch (error) {
@@ -177,20 +183,6 @@ const ManageEventAttendeesModal: React.FC<ManageEventAttendeesModalProps> = ({ i
       showToast('Failed to update admin status', 'error');
     } finally {
       setProcessingUser(null);
-    }
-  };
-
-  const modalVariants = {
-    hidden: { opacity: 0, scale: 0.9 },
-    visible: { 
-      opacity: 1, 
-      scale: 1,
-      transition: { duration: 0.2 }
-    },
-    exit: { 
-      opacity: 0, 
-      scale: 0.9,
-      transition: { duration: 0.2 }
     }
   };
 

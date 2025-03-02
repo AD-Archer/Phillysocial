@@ -1,6 +1,6 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
+import { useState, useEffect, useCallback } from 'react';
+import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { Event, EventCategory } from '@/types/Event';
 import { useAuth } from '@/lib/context/AuthContext';
@@ -40,8 +40,8 @@ const EventList: React.FC<EventListProps> = ({ onSelectEvent, selectedEventId })
     { id: 'other', name: 'Other' },
   ];
 
-  // Fetch events from Firestore
-  const fetchEvents = async () => {
+  // Wrap fetchEvents in useCallback
+  const fetchEvents = useCallback(async () => {
     if (!user) return;
     
     setIsLoading(true);
@@ -136,14 +136,14 @@ const EventList: React.FC<EventListProps> = ({ onSelectEvent, selectedEventId })
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, showToast]);
 
   // Fetch events on component mount and when user changes
   useEffect(() => {
     if (user) {
       fetchEvents();
     }
-  }, [user]);
+  }, [user, fetchEvents]);
 
   // Apply filters and search
   useEffect(() => {

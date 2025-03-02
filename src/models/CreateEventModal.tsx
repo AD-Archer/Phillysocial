@@ -1,6 +1,6 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { FaTimes, FaCalendarAlt, FaMapMarkerAlt, FaImage, FaExclamationTriangle, FaSpinner, FaRandom, FaLock, FaGlobe } from 'react-icons/fa';
+import { useState } from 'react';
+import { FaTimes, FaCalendarAlt, FaMapMarkerAlt, FaImage, FaExclamationTriangle, FaSpinner, FaLock, FaGlobe } from 'react-icons/fa';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebaseConfig';
@@ -167,20 +167,6 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({ isOpen, onClose, on
       setError('Failed to create event. Please try again.');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const modalVariants = {
-    hidden: { opacity: 0, scale: 0.9 },
-    visible: { 
-      opacity: 1, 
-      scale: 1,
-      transition: { duration: 0.2 }
-    },
-    exit: { 
-      opacity: 0, 
-      scale: 0.9,
-      transition: { duration: 0.2 }
     }
   };
 

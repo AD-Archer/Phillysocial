@@ -11,13 +11,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 
 interface EditEventModalProps {
-  isOpen: boolean;
   event: Event;
   onClose: () => void;
   onUpdate?: (updatedEvent: Event) => void;
 }
 
-const EditEventModal: React.FC<EditEventModalProps> = ({ isOpen, event, onClose, onUpdate }) => {
+const EditEventModal: React.FC<EditEventModalProps> = ({ event, onClose, onUpdate }) => {
   const [title, setTitle] = useState(event.title);
   const [description, setDescription] = useState(event.description || '');
   const [date, setDate] = useState('');
