@@ -86,8 +86,16 @@ const BannedUsersModal: React.FC<BannedUsersModalProps> = ({
               if (!banHistorySnapshot.empty) {
                 // Get the most recent ban record
                 const banRecord = banHistorySnapshot.docs
-                  .map(doc => ({ id: doc.id, ...doc.data() }))
-                  .sort((a, b) => b.bannedAt?.toDate() - a.bannedAt?.toDate())[0];
+                  .map(doc => ({ id: doc.id, ...doc.data() as { 
+                    bannedAt?: { toDate: () => Date }, 
+                    reason?: string, 
+                    bannedBy?: string 
+                  } }))
+                  .sort((a, b) => {
+                    const dateA = a.bannedAt?.toDate();
+                    const dateB = b.bannedAt?.toDate();
+                    return dateB && dateA ? dateB.getTime() - dateA.getTime() : 0;
+                  })[0];
                 
                 banReason = banRecord.reason || '';
                 bannedAt = banRecord.bannedAt?.toDate();
@@ -107,7 +115,7 @@ const BannedUsersModal: React.FC<BannedUsersModalProps> = ({
             } catch (error) {
               console.error('Error fetching ban history:', error);
               // Check if it's a permission error
-              if (error.code === 'permission-denied') {
+              if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'permission-denied') {
                 setBanHistoryPermissionError(true);
               }
               // Continue without ban history
@@ -225,7 +233,7 @@ const BannedUsersModal: React.FC<BannedUsersModalProps> = ({
     );
   });
 
-  const isValidImageUrl = (url: string) => {
+  const isValidImageUrl = (url: string | undefined): boolean => {
     if (!url) return false;
     try {
       new URL(url);
@@ -291,7 +299,7 @@ const BannedUsersModal: React.FC<BannedUsersModalProps> = ({
                         <div className="relative w-12 h-12 rounded-full overflow-hidden">
                           {isValidImageUrl(bannedUser.photoURL) ? (
                             <Image
-                              src={bannedUser.photoURL}
+                              src={bannedUser.photoURL || '/default-avatar.png'}
                               alt={bannedUser.displayName}
                               fill
                               className="object-cover"

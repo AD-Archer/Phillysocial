@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
@@ -30,7 +30,7 @@ export const ProfileCompletionProvider = ({ children }: ProfileCompletionProvide
   const router = useRouter();
   const pathname = usePathname();
 
-  const checkProfileCompletion = async (): Promise<boolean> => {
+  const checkProfileCompletion = useCallback(async (): Promise<boolean> => {
     if (!user) return false;
 
     try {
@@ -53,7 +53,7 @@ export const ProfileCompletionProvider = ({ children }: ProfileCompletionProvide
       console.error('Error checking profile completion:', error);
       return false;
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     const checkAndRedirect = async () => {
