@@ -76,6 +76,16 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ onClose, onChan
         ...(invitedUsers.length > 0 && { invitedUsers }),
       };
 
+      // Add invite code for private channels
+      if (!isPublic) {
+        channelData.inviteCode = inviteCode;
+        
+        // Add expiry date if set
+        if (inviteCodeExpiry) {
+          channelData.inviteCodeExpiry = new Date(inviteCodeExpiry);
+        }
+      }
+
       // Add the document to Firestore
       const docRef = await addDoc(collection(db, 'channels'), {
         ...channelData,
