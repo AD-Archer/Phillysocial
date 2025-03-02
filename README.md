@@ -1,9 +1,9 @@
-Philly Social
+#Philly Social
 A community-driven platform for real-time discussions and meetings in Philadelphia.
 
 
 
-About the Project
+About the Project:
 Philly Social is a web application designed to bring Philadelphia residents and those with Philly roots into a single, accessible space for real-time community engagement. Users can host or join meetings, discuss local topics, and collaborate on city-wide initiatives—all in one place.
 
 
@@ -13,7 +13,7 @@ Many communities struggle with accessibility, engagement, and coordination when 
 
 
 
-Features
+Features:
 ✅ Instant Community Meetings – Host or join live discussions effortlessly.
 ✅ Topic-Based Discussion Rooms – Organize conversations by neighborhood, interests, or issues.
 ✅ Event & Initiative Planning – Plan meetups, volunteer efforts, and advocacy campaigns.
@@ -22,7 +22,7 @@ Features
 
 
 
-Tech Stack
+Tech Stack:
 Frontend: React (or Next.js), Tailwind CSS
 Backend: Node.js, Express.js
 Database: MySQL
@@ -79,7 +79,7 @@ npm start
 
 
 
-Usage
+Usage:
 Sign up and create a profile.
 Join or start a real-time community discussion.
 Engage with other Philadelphians in topic-based chat rooms.
@@ -87,7 +87,7 @@ Plan and organize events directly through the platform.
 
 
 
-Future Enhancements
+Future Enhancements:
 🚀 Mobile app version (iOS & Android).
 🚀 AI-powered topic recommendations.
 🚀 Verified badges for organizations and community leaders.
@@ -97,7 +97,6 @@ Future Enhancements
 
 Contributing
 We welcome contributions! To contribute:
-
 Fork the repository.
 Create a new branch (feature-new-feature).
 Commit your changes.
