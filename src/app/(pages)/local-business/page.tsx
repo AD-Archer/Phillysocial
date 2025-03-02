@@ -1,14 +1,24 @@
 'use client';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { FaStore, FaUtensils, FaCoffee, FaShoppingBag, FaSearch, FaMapMarkerAlt, FaStar, FaExternalLinkAlt } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FaStore, FaUtensils, FaCoffee, FaShoppingBag, FaSearch, FaMapMarkerAlt, FaStar, FaExternalLinkAlt, FaSpinner } from 'react-icons/fa';
 import Image from 'next/image';
 import MainLayout from '@/layouts/MainLayout';
+import { useAuth } from '@/lib/context/AuthContext';
 
 export default function LocalBusiness() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const { loading } = useAuth();
+
+  // Set loading state based on auth loading
+  useEffect(() => {
+    if (!loading) {
+      setIsLoading(false);
+    }
+  }, [loading]);
 
   // Add Eagles font and breathing gradient
   useEffect(() => {
@@ -183,6 +193,11 @@ export default function LocalBusiness() {
     }
   ];
 
+  // Handle category change with smooth transition
+  const handleCategoryChange = (categoryId: string) => {
+    setSelectedCategory(categoryId);
+  };
+
   // Filter businesses based on search and category
   const filteredBusinesses = businesses.filter(business => {
     const matchesSearch = business.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -193,6 +208,18 @@ export default function LocalBusiness() {
 
   // Featured businesses
   const featuredBusinesses = businesses.filter(business => business.featured);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#003038] via-[#004C54] to-[#046A38]">
+        <div className="flex flex-col items-center">
+          <FaSpinner className="animate-spin h-16 w-16 text-white mb-4" />
+          <p className="text-white text-lg">Loading local businesses...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <MainLayout>
@@ -240,7 +267,7 @@ export default function LocalBusiness() {
                         ? 'bg-[#A5ACAF] text-[#003038] font-semibold'
                         : 'bg-black/30 text-white hover:bg-black/40'
                     }`}
-                    onClick={() => setSelectedCategory(category.id)}
+                    onClick={() => handleCategoryChange(category.id)}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                   >
@@ -265,7 +292,7 @@ export default function LocalBusiness() {
             >
               Featured Businesses
             </motion.h2>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {featuredBusinesses.map((business) => (
                 <motion.div 
                   key={business.id}
@@ -329,53 +356,63 @@ export default function LocalBusiness() {
             {selectedCategory === 'all' ? 'All Businesses' : `${categories.find(c => c.id === selectedCategory)?.name}`}
           </motion.h2>
           
-          {filteredBusinesses.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-xl text-[#A5ACAF]">No businesses found matching your search criteria.</p>
-            </div>
-          ) : (
-            <motion.div 
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-              variants={staggerContainer}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-            >
-              {filteredBusinesses.map((business) => (
-                <motion.div 
-                  key={business.id}
-                  className="bg-black/30 backdrop-blur-md rounded-xl overflow-hidden shadow-xl"
-                  variants={fadeInUp}
-                  whileHover={{ y: -5 }}
-                >
-                  <div className="p-6">
-                    <h3 className="text-xl font-bold text-white mb-2">{business.name}</h3>
-                    <div className="flex items-center mb-4">
-                      <div className="flex text-yellow-400 mr-2">
-                        {[...Array(5)].map((_, i) => (
-                          <FaStar key={i} size={14} className={i < Math.floor(business.rating) ? "text-yellow-400" : "text-gray-400"} />
-                        ))}
+          <AnimatePresence mode="wait">
+            {filteredBusinesses.length === 0 ? (
+              <motion.div 
+                key="no-results"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-center py-12"
+              >
+                <p className="text-xl text-[#A5ACAF]">No businesses found matching your search criteria.</p>
+              </motion.div>
+            ) : (
+              <motion.div 
+                key={selectedCategory}
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+                variants={staggerContainer}
+                initial="hidden"
+                animate="visible"
+                exit={{ opacity: 0 }}
+              >
+                {filteredBusinesses.map((business) => (
+                  <motion.div 
+                    key={business.id}
+                    className="bg-black/30 backdrop-blur-md rounded-xl overflow-hidden shadow-xl"
+                    variants={fadeInUp}
+                    whileHover={{ y: -5 }}
+                    layout
+                  >
+                    <div className="p-6">
+                      <h3 className="text-xl font-bold text-white mb-2">{business.name}</h3>
+                      <div className="flex items-center mb-4">
+                        <div className="flex text-yellow-400 mr-2">
+                          {[...Array(5)].map((_, i) => (
+                            <FaStar key={i} size={14} className={i < Math.floor(business.rating) ? "text-yellow-400" : "text-gray-400"} />
+                          ))}
+                        </div>
+                        <span className="text-[#A5ACAF] text-sm">{business.rating}</span>
                       </div>
-                      <span className="text-[#A5ACAF] text-sm">{business.rating}</span>
+                      <p className="text-[#A5ACAF] text-sm mb-4">{business.description}</p>
+                      <p className="text-white text-sm flex items-center mb-4">
+                        <FaMapMarkerAlt className="mr-2 text-[#A5ACAF]" /> {business.address}
+                      </p>
+                      <motion.div whileHover={{ x: 5 }}>
+                        <Link 
+                          href={business.website} 
+                          target="_blank" 
+                          className="text-white text-sm font-medium flex items-center"
+                        >
+                          Visit website <FaExternalLinkAlt className="ml-2" />
+                        </Link>
+                      </motion.div>
                     </div>
-                    <p className="text-[#A5ACAF] text-sm mb-4">{business.description}</p>
-                    <p className="text-white text-sm flex items-center mb-4">
-                      <FaMapMarkerAlt className="mr-2 text-[#A5ACAF]" /> {business.address}
-                    </p>
-                    <motion.div whileHover={{ x: 5 }}>
-                      <Link 
-                        href={business.website} 
-                        target="_blank" 
-                        className="text-white text-sm font-medium flex items-center"
-                      >
-                        Visit website <FaExternalLinkAlt className="ml-2" />
-                      </Link>
-                    </motion.div>
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          )}
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </section>
 
         {/* Small Business Saturday Section */}

@@ -14,8 +14,8 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 
   const menuItems = [
     { name: 'Home', icon: <FaHome className="mr-4" />, href: '/' },
-    { name: 'Social Feed', icon: <FaUsers className="mr-4" />, href: '/social-feed' },
-    { name: 'News Feed', icon: <FaNewspaper className="mr-4" />, href: '/news-feed' },
+    { name: 'Social Feed', icon: <FaUsers className="mr-4" />, href: '/dashboard' },
+    { name: 'News Feed', icon: <FaNewspaper className="mr-4" />, href: '/news' },
     { name: 'Local Business', icon: <FaStore className="mr-4" />, href: '/local-business' },
     { name: 'Profile', icon: <FaUser className="mr-4" />, href: '/profile' },
     { name: 'About', icon: <FaInfoCircle className="mr-4" />, href: '/about' },

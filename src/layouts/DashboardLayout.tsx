@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/context/AuthContext';
 import Sidebar from '@/layouts/Sidebar';
 import Header from '@/layouts/Header';
 import { motion } from 'framer-motion';
-import { FaHome, FaCompass, FaCalendarAlt, FaStore } from 'react-icons/fa';
+import { FaHome, FaCompass, FaCalendarAlt, FaStore, FaLock, FaSignInAlt, FaUserPlus } from 'react-icons/fa';
 import Link from 'next/link';
 
 interface DashboardLayoutProps {
@@ -16,6 +16,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showAuthMessage, setShowAuthMessage] = useState(false);
 
   // Create a dedicated toggle function to handle sidebar state
   const toggleSidebar = () => {
@@ -24,7 +25,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login');
+      setShowAuthMessage(true);
+      // Don't redirect immediately, show the message first
+      // We'll still have a button to redirect to login
     }
     
     // Add Eagles font if not already added
@@ -63,6 +66,59 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-white mb-4"></div>
           <p className="text-white text-lg">Loading your Philly Social experience...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (showAuthMessage) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#003038] via-[#004C54] to-[#046A38] p-4">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="bg-white rounded-xl shadow-xl p-8 max-w-md w-full"
+        >
+          <div className="flex justify-center mb-6">
+            <div className="w-20 h-20 bg-[#004C54]/10 rounded-full flex items-center justify-center">
+              <FaLock size={40} className="text-[#004C54]" />
+            </div>
+          </div>
+          
+          <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">Authentication Required</h2>
+          <p className="text-gray-600 text-center mb-8">
+            You need to be logged in to access the dashboard and connect with your Philly community.
+          </p>
+          
+          <div className="flex flex-col space-y-4">
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => router.push('/login')}
+              className="w-full bg-[#004C54] text-white py-3 px-4 rounded-lg flex items-center justify-center font-medium"
+            >
+              <FaSignInAlt className="mr-2" /> Log In
+            </motion.button>
+            
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => router.push('/signup')}
+              className="w-full bg-white border border-[#004C54] text-[#004C54] py-3 px-4 rounded-lg flex items-center justify-center font-medium"
+            >
+              <FaUserPlus className="mr-2" /> Sign Up
+            </motion.button>
+            
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => router.push('/')}
+              className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg flex items-center justify-center font-medium"
+            >
+              Return to Home
+            </motion.button>
+          </div>
+        </motion.div>
       </div>
     );
   }

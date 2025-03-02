@@ -50,19 +50,20 @@ interface TrendingTopic {
 type DiscoverTab = 'channels' | 'users';
 
 export default function Discover() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<DiscoverTab>('channels');
   const [searchQuery, setSearchQuery] = useState('');
   const [channels, setChannels] = useState<Channel[]>([]);
   const [filteredChannels, setFilteredChannels] = useState<Channel[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserProfile[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [lastVisible, setLastVisible] = useState<DocumentData | null>(null);
-  const [hasMore, setHasMore] = useState(true);
   const [trendingTopics, setTrendingTopics] = useState<TrendingTopic[]>([]);
   const [suggestedCommunities, setSuggestedCommunities] = useState<Channel[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [lastVisible, setLastVisible] = useState<DocumentData | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
   
   // Profile popup state
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
@@ -73,7 +74,7 @@ export default function Discover() {
   const fetchChannels = useCallback(async () => {
     if (!user) return;
     
-    setIsLoading(true);
+    setLoading(true);
     
     try {
       const q = query(
@@ -107,13 +108,13 @@ export default function Discover() {
         setFilteredChannels(channelData);
         setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
         setHasMore(querySnapshot.docs.length === 10);
-        setIsLoading(false);
+        setLoading(false);
       });
       
       return unsubscribe;
     } catch (error) {
       console.error('Error fetching channels:', error);
-      setIsLoading(false);
+      setLoading(false);
       return () => {};
     }
   }, [user]);
@@ -122,7 +123,7 @@ export default function Discover() {
   const fetchUsers = useCallback(async () => {
     if (!user) return;
     
-    setIsLoading(true);
+    setLoading(true);
     
     try {
       const q = query(
@@ -151,13 +152,13 @@ export default function Discover() {
         setFilteredUsers(userData);
         setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
         setHasMore(querySnapshot.docs.length === 10);
-        setIsLoading(false);
+        setLoading(false);
       });
       
       return unsubscribe;
     } catch (error) {
       console.error('Error fetching users:', error);
-      setIsLoading(false);
+      setLoading(false);
       return () => {};
     }
   }, [user]);
@@ -259,7 +260,7 @@ export default function Discover() {
 
   // Initialize data fetching
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.push('/login');
     } else if (user) {
       const unsubscribeChannels = fetchChannels();
@@ -275,7 +276,7 @@ export default function Discover() {
         if (unsubscribeSuggested) unsubscribeSuggested.then(unsub => unsub && unsub());
       };
     }
-  }, [user, loading, router, fetchChannels, fetchUsers, fetchTrendingTopics, fetchSuggestedCommunities]);
+  }, [user, authLoading, router, fetchChannels, fetchUsers, fetchTrendingTopics, fetchSuggestedCommunities]);
 
   // Handle search in real-time
   useEffect(() => {
@@ -305,7 +306,7 @@ export default function Discover() {
   const loadMore = async () => {
     if (!user || !lastVisible || !hasMore) return;
     
-    setIsLoading(true);
+    setLoadingMore(true);
     
     try {
       let q;
@@ -374,7 +375,7 @@ export default function Discover() {
     } catch (error) {
       console.error('Error loading more discover data:', error);
     } finally {
-      setIsLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -535,7 +536,7 @@ export default function Discover() {
                       </div>
                     ) : (
                       <div className="p-8 text-center text-gray-500">
-                        {isLoading ? (
+                        {loadingMore ? (
                           <div className="flex justify-center">
                             <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#004C54]"></div>
                           </div>
@@ -549,10 +550,10 @@ export default function Discover() {
                       <div className="p-4 border-t border-gray-100 text-center">
                         <button
                           onClick={loadMore}
-                          disabled={isLoading}
+                          disabled={loadingMore}
                           className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors disabled:opacity-50"
                         >
-                          {isLoading ? 'Loading...' : 'Load More'}
+                          {loadingMore ? 'Loading...' : 'Load More'}
                         </button>
                       </div>
                     )}
@@ -607,7 +608,7 @@ export default function Discover() {
                       </div>
                     ) : (
                       <div className="p-8 text-center text-gray-500">
-                        {isLoading ? (
+                        {loadingMore ? (
                           <div className="flex justify-center">
                             <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#004C54]"></div>
                           </div>
@@ -621,10 +622,10 @@ export default function Discover() {
                       <div className="p-4 border-t border-gray-100 text-center">
                         <button
                           onClick={loadMore}
-                          disabled={isLoading}
+                          disabled={loadingMore}
                           className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors disabled:opacity-50"
                         >
-                          {isLoading ? 'Loading...' : 'Load More'}
+                          {loadingMore ? 'Loading...' : 'Load More'}
                         </button>
                       </div>
                     )}

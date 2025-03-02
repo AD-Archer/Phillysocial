@@ -19,6 +19,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import PostCard from '@/components/Posts/PostCard';
 import EditProfileModal from '@/components/Profile/EditProfileModal';
+import { motion } from 'framer-motion';
 
 
 interface UserProfile {
@@ -47,6 +48,37 @@ const ProfilePage = () => {
   const [userChannels, setUserChannels] = useState<Channel[]>([]);
   const [activeTab, setActiveTab] = useState<'posts' | 'channels'>('posts');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Add breathing gradient animation style
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .breathing-gradient {
+        background-size: 200% 200%;
+        animation: breathe 8s ease infinite;
+      }
+      
+      @keyframes breathe {
+        0% {
+          background-position: 0% 50%;
+          opacity: 0.05;
+        }
+        50% {
+          background-position: 100% 50%;
+          opacity: 0.2;
+        }
+        100% {
+          background-position: 0% 50%;
+          opacity: 0.05;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   // Set up real-time listeners for user data
   useEffect(() => {
@@ -209,8 +241,109 @@ const ProfilePage = () => {
   if (!user) {
     return (
       <MainLayout>
-        <div className="flex justify-center items-center h-full">
-          <p>Please log in to view your profile</p>
+        <div className="flex flex-col justify-center items-center min-h-[70vh] px-4 py-8 md:py-12">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            whileHover={{ 
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+              y: -5,
+              transition: { duration: 0.3 }
+            }}
+            className="bg-white rounded-lg shadow-lg overflow-hidden w-full max-w-md text-center relative"
+          >
+            {/* Background pattern */}
+            <div className="absolute inset-0 opacity-5 pointer-events-none">
+              <div className="absolute inset-0 bg-[url('/pattern.svg')] bg-repeat opacity-10"></div>
+            </div>
+            
+            <motion.div 
+              initial={{ opacity: 0.6 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.8, ease: "easeInOut" }}
+              className="h-28 sm:h-32 bg-gradient-to-r from-[#004C54] to-[#046A38] flex items-center justify-center relative overflow-hidden"
+            >
+              {/* Animated background effect */}
+              <div className="absolute inset-0 bg-[url('/pattern.svg')] bg-repeat opacity-10"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-10 breathing-gradient"></div>
+              
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+                className="relative z-10"
+              >
+                <div className="bg-white/10 p-4 rounded-full backdrop-blur-sm">
+                  <FaUser className="text-white text-4xl sm:text-5xl opacity-90" />
+                </div>
+              </motion.div>
+            </motion.div>
+            
+            <div className="p-6 sm:p-8 relative z-10">
+              <motion.h2 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.5 }}
+                className="text-2xl sm:text-3xl font-bold text-[#004C54] mb-3 sm:mb-4 eagles-font"
+              >
+                Profile Access
+              </motion.h2>
+              <motion.p 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5, duration: 0.5 }}
+                className="text-gray-600 mb-6 max-w-sm mx-auto"
+              >
+                Please sign in to view and manage your profile, see your posts, and connect with your community.
+              </motion.p>
+              <div className="space-y-3 sm:space-y-4">
+                <motion.button 
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.6, duration: 0.4 }}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => router.push('/login')}
+                  className="w-full bg-[#004C54] hover:bg-[#003940] text-white py-3 px-4 rounded-md transition-all duration-300 flex items-center justify-center shadow-md hover:shadow-lg"
+                >
+                  <FaUser className="mr-2" /> Sign In
+                </motion.button>
+                <motion.button 
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.7, duration: 0.4 }}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => router.push('/login?mode=signup')}
+                  className="w-full bg-[#046A38] hover:bg-[#035A28] text-white py-3 px-4 rounded-md transition-all duration-300 flex items-center justify-center shadow-md hover:shadow-lg"
+                >
+                  <FaEnvelope className="mr-2" /> Create Account
+                </motion.button>
+              </div>
+            </div>
+            
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8, duration: 0.5 }}
+              className="bg-gray-50 p-4 border-t border-gray-100 relative z-10"
+            >
+              <p className="text-sm text-gray-500">
+                Join Philly Social to connect with your community and stay updated on local events.
+              </p>
+            </motion.div>
+          </motion.div>
+          
+          {/* Additional information */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1, duration: 0.5 }}
+            className="mt-6 text-center text-white text-sm max-w-md"
+          >
+           
+          </motion.div>
         </div>
       </MainLayout>
     );

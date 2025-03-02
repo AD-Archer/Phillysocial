@@ -1,20 +1,15 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { useAuth } from '@/lib/context/AuthContext';
 import EventList from '@/components/Events/EventList';
 import EventView from '@/components/Events/EventView';
 
 export default function Events() {
   const { user, loading } = useAuth();
-  const router = useRouter();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
+  // We don't need to redirect here as the DashboardLayout will handle authentication
+  // and show the authentication message if user is not logged in
 
   const handleSelectEvent = (eventId: string) => {
     setSelectedEventId(eventId);
@@ -29,7 +24,7 @@ export default function Events() {
   }
 
   if (!user) {
-    return null; // Will redirect to login
+    return null; // Will be handled by DashboardLayout
   }
 
   return (
