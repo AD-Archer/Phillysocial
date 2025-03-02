@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
-import { FaBars, FaSignInAlt, FaUserPlus, FaUser, FaSignOutAlt, FaUserCircle } from 'react-icons/fa';
+import { FaBars, FaSignInAlt, FaUserPlus, FaUser, FaSignOutAlt, FaUserCircle, FaTimes } from 'react-icons/fa';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,9 +12,10 @@ import { useRouter } from 'next/navigation';
 interface HeaderProps {
   onMenuClick: () => void;
   onProfileClick: () => void;
+  isSidebarOpen?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick }) => {
+const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick, isSidebarOpen = false }) => {
   const { user } = useAuth();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -88,11 +89,11 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick }) => {
           <motion.button
             onClick={onMenuClick}
             className="text-white focus:outline-none hover:text-[#A5ACAF] transition-colors"
-            aria-label="Open menu"
+            aria-label={isSidebarOpen ? "Close menu" : "Open menu"}
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
           >
-            <FaBars size={24} />
+            {isSidebarOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
           </motion.button>
           <Link href="/" className="flex items-center space-x-3">
             <div className="relative w-10 h-10">

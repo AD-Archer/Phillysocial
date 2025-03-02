@@ -19,6 +19,11 @@ export default function NewsLayout({
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(true);
 
+  // Create a dedicated toggle function to handle sidebar state
+  const toggleSidebar = () => {
+    setIsSidebarOpen(prevState => !prevState);
+  };
+
   const handleSignOut = async () => {
     try {
       await signOut(auth);
@@ -39,8 +44,9 @@ export default function NewsLayout({
   return (
     <div className="min-h-screen bg-gray-50">
       <Header 
-        onMenuClick={() => setIsSidebarOpen(true)}
+        onMenuClick={toggleSidebar}
         onProfileClick={() => setIsProfileOpen(!isProfileOpen)}
+        isSidebarOpen={isSidebarOpen}
       />
       
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />

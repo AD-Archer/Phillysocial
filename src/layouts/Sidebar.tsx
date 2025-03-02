@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
-import { FaNewspaper, FaUser, FaStream, FaTimes, FaHome, FaInfoCircle } from 'react-icons/fa';
-import { useEffect } from 'react';
+import { FaNewspaper, FaUser, FaTimes, FaHome, FaInfoCircle, FaUsers, FaEnvelope, FaStore } from 'react-icons/fa';
+import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface SidebarProps {
@@ -10,36 +10,45 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
   const menuItems = [
-    { icon: FaHome, label: 'Home', href: '/' },
-    { icon: FaStream, label: 'Social Feed', href: '/dashboard' },
-    { icon: FaNewspaper, label: 'News Feed', href: '/news' },
-    { icon: FaUser, label: 'Profile', href: '/profile' },
-    { icon: FaInfoCircle, label: 'About', href: '/about' },
+    { name: 'Home', icon: <FaHome className="mr-4" />, href: '/' },
+    { name: 'Social Feed', icon: <FaUsers className="mr-4" />, href: '/social-feed' },
+    { name: 'News Feed', icon: <FaNewspaper className="mr-4" />, href: '/news-feed' },
+    { name: 'Local Business', icon: <FaStore className="mr-4" />, href: '/local-business' },
+    { name: 'Profile', icon: <FaUser className="mr-4" />, href: '/profile' },
+    { name: 'About', icon: <FaInfoCircle className="mr-4" />, href: '/about' },
+    { name: 'Contact', icon: <FaEnvelope className="mr-4" />, href: '/contact' },
   ];
 
-  // Close sidebar when clicking outside on mobile
+  // Close sidebar when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const sidebar = document.getElementById('sidebar');
-      if (isOpen && sidebar && !sidebar.contains(event.target as Node)) {
+    function handleClickOutside(event: MouseEvent) {
+      if (sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
         onClose();
       }
-    };
+    }
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, [isOpen, onClose]);
 
-  // Prevent scrolling when sidebar is open on mobile
+  // Prevent body scrolling when sidebar is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = '';
+      document.body.style.overflow = 'auto';
     }
+    
     return () => {
-      document.body.style.overflow = '';
+      document.body.style.overflow = 'auto';
     };
   }, [isOpen]);
 
@@ -69,6 +78,7 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             exit={{ x: "-100%" }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="fixed inset-y-0 left-0 bg-[#004C54] text-white w-64 min-h-screen p-4 z-[45] shadow-2xl"
+            ref={sidebarRef}
           >
             <div className="flex justify-between items-center mb-8 border-b border-[#A5ACAF]/20 pb-4">
               <h2 className="text-2xl eagles-font">Philly Social</h2>
@@ -85,7 +95,6 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
             <nav>
               <ul className="space-y-2">
                 {menuItems.map((item, index) => {
-                  const Icon = item.icon;
                   return (
                     <motion.li 
                       key={item.href}
@@ -98,8 +107,8 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
                         className="flex items-center space-x-3 p-3 rounded-lg hover:bg-[#003940] transition-colors"
                         onClick={() => onClose()}
                       >
-                        <Icon className="w-5 h-5" />
-                        <span>{item.label}</span>
+                        {item.icon}
+                        <span>{item.name}</span>
                       </Link>
                     </motion.li>
                   );

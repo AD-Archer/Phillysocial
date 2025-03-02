@@ -17,6 +17,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Create a dedicated toggle function to handle sidebar state
+  const toggleSidebar = () => {
+    setIsSidebarOpen(prevState => !prevState);
+  };
+
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
@@ -48,7 +53,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { icon: <FaHome size={20} />, label: 'Home', href: '/dashboard' },
     { icon: <FaCompass size={20} />, label: 'Discover', href: '/dashboard/discover' },
     { icon: <FaCalendarAlt size={20} />, label: 'Events', href: '/dashboard/events' },
-    { icon: <FaStore size={20} />, label: 'Local Business', href: '/dashboard/local-business' },
+    { icon: <FaStore size={20} />, label: 'Local Business', href: '/local-business' },
   ];
 
   if (loading) {
@@ -69,8 +74,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header 
-        onMenuClick={() => setIsSidebarOpen(true)}
+        onMenuClick={toggleSidebar}
         onProfileClick={() => {}}
+        isSidebarOpen={isSidebarOpen}
       />
       
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
