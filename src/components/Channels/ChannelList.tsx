@@ -3,12 +3,22 @@ import { useState, useEffect } from 'react';
 import { FaPlus, FaHashtag, FaExclamationTriangle, FaLock, FaKey, FaCopy } from 'react-icons/fa';
 import Image from 'next/image';
 import { Channel } from '@/types/Channel';
-import { collection, doc, onSnapshot, query } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
 import { useToast } from '../../layouts/Toast';
 import CreateChannelModal from '../../models/CreateChannelModal';
 import JoinChannelModal from '../../models/JoinChannelModal';
+
+interface UserDetails {
+  displayName: string;
+  fullName?: string;
+  email: string;
+  photoURL?: string;
+  status: 'online' | 'offline' | 'away' | 'deleted';
+  lastActive?: Date;
+  role: 'member' | 'admin' | 'creator';
+}
 
 interface ChannelListProps {
   onSelectChannel: (channelId: string) => void;
@@ -39,51 +49,141 @@ const ChannelList: React.FC<ChannelListProps> = ({ onSelectChannel, selectedChan
       
       const unsubscribe = onSnapshot(
         q,
-        (snapshot) => {
-          const fetchedChannels: Channel[] = [];
-          snapshot.forEach(doc => {
-            const data = doc.data();
-            // Make sure createdAt is properly handled
-            const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
+        async (snapshot) => {
+          try {
+            const fetchedChannels: Channel[] = [];
+            const seenIds = new Set<string>();
             
-            const channel = {
-              id: doc.id,
-              name: data.name || 'Unnamed Channel',
-              description: data.description || '',
-              createdBy: data.createdBy || '',
-              createdAt: createdAt,
-              members: data.members || [],
-              admins: data.admins || [data.createdBy],
-              isPublic: data.isPublic !== undefined ? data.isPublic : true,
-              imageUrl: data.imageUrl,
-              invitedUsers: data.invitedUsers || [],
-              inviteCode: data.inviteCode,
-              bannedUsers: data.bannedUsers || [],
-              mutedUsers: data.mutedUsers || [],
-              deleted: data.deleted
-            };
+            // Create a map to store user data
+            const userDataMap = new Map<string, UserDetails>();
             
-            // Skip deleted channels
-            if (channel.deleted) return;
+            // First pass: collect all unique user IDs
+            const allUserIds = new Set<string>();
+            snapshot.forEach(doc => {
+              const data = doc.data();
+              if (data.members) {
+                data.members.forEach((memberId: string) => allUserIds.add(memberId));
+              }
+              if (data.createdBy) {
+                allUserIds.add(data.createdBy);
+              }
+              if (data.admins) {
+                data.admins.forEach((adminId: string) => allUserIds.add(adminId));
+              }
+            });
+
+            // Fetch all user data in parallel
+            await Promise.all(
+              Array.from(allUserIds).map(async (userId) => {
+                try {
+                  const userDoc = await getDoc(doc(db, 'users', userId));
+                  if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    // Only mark as deleted if explicitly set in the database
+                    const isDeleted = userData.status === 'deleted' || userData.deleted === true;
+                    
+                    userDataMap.set(userId, {
+                      displayName: isDeleted ? 'Deleted Account' : (userData.displayName || userData.email?.split('@')[0] || 'Anonymous User'),
+                      fullName: isDeleted ? undefined : userData.fullName,
+                      email: isDeleted ? 'deleted@account' : (userData.email || 'No email'),
+                      photoURL: isDeleted ? undefined : userData.photoURL,
+                      status: isDeleted ? 'deleted' : (userData.status as UserDetails['status'] || 'offline'),
+                      lastActive: isDeleted ? undefined : userData.lastActive?.toDate(),
+                      role: 'member'
+                    });
+                  } else {
+                    // Only mark as deleted if the document doesn't exist
+                    userDataMap.set(userId, {
+                      displayName: 'Deleted Account',
+                      email: 'deleted@account',
+                      status: 'deleted',
+                      role: 'member'
+                    });
+                  }
+                } catch (error) {
+                  console.error(`Error fetching user ${userId}:`, error);
+                  // Set a temporary user object on error
+                  userDataMap.set(userId, {
+                    displayName: 'Unknown User',
+                    email: 'unknown@user',
+                    status: 'offline',
+                    role: 'member'
+                  });
+                }
+              })
+            );
             
-            // Skip channels where the user is banned
-            if (channel.bannedUsers?.includes(user.uid)) return;
+            // Second pass: process channels with complete user data
+            snapshot.forEach(doc => {
+              if (seenIds.has(doc.id)) {
+                console.warn(`Duplicate channel ID found: ${doc.id}`);
+                return;
+              }
+              
+              const data = doc.data();
+              if (!data.name || !data.createdBy) {
+                console.warn(`Invalid channel data found for ID: ${doc.id}`);
+                return;
+              }
+
+              // Create memberDetails object with complete user data
+              const memberDetails: { [key: string]: UserDetails } = {};
+              (data.members || []).forEach((memberId: string) => {
+                const userData = userDataMap.get(memberId);
+                if (userData) {
+                  memberDetails[memberId] = {
+                    ...userData,
+                    role: data.createdBy === memberId ? 'creator' :
+                          (data.admins || []).includes(memberId) ? 'admin' : 'member'
+                  };
+                }
+              });
+
+              const channel = {
+                id: doc.id,
+                name: data.name,
+                description: data.description || '',
+                createdBy: data.createdBy,
+                createdAt: data.createdAt?.toDate() || new Date(),
+                members: data.members || [],
+                admins: data.admins || [data.createdBy],
+                isPublic: data.isPublic !== undefined ? data.isPublic : true,
+                imageUrl: data.imageUrl,
+                invitedUsers: data.invitedUsers || [],
+                inviteCode: data.inviteCode,
+                bannedUsers: data.bannedUsers || [],
+                mutedUsers: data.mutedUsers || [],
+                deleted: data.deleted,
+                memberDetails
+              };
+
+              if (channel.deleted) return;
+              if (channel.bannedUsers?.includes(user.uid)) return;
+              
+              if (
+                channel.isPublic || 
+                channel.members.includes(user.uid) || 
+                (channel.invitedUsers && channel.invitedUsers.includes(user.email))
+              ) {
+                seenIds.add(doc.id);
+                fetchedChannels.push(channel);
+              }
+            });
             
-            // Only include channels that:
-            // 1. Are public, OR
-            // 2. User is a member, OR
-            // 3. User is invited
-            if (
-              channel.isPublic || 
-              channel.members.includes(user.uid) || 
-              (channel.invitedUsers && channel.invitedUsers.includes(user.email))
-            ) {
-              fetchedChannels.push(channel);
-            }
-          });
-          
-          setChannels(fetchedChannels.sort((a, b) => a.name.localeCompare(b.name)));
-          setIsLoading(false);
+            const sortedChannels = fetchedChannels.sort((a, b) => {
+              const userInA = a.members.includes(user.uid);
+              const userInB = b.members.includes(user.uid);
+              if (userInA !== userInB) return userInB ? 1 : -1;
+              return a.name.localeCompare(b.name);
+            });
+            
+            setChannels(sortedChannels);
+            setIsLoading(false);
+          } catch (error) {
+            console.error('Error processing channels:', error);
+            setError('Failed to process channel information');
+            setIsLoading(false);
+          }
         },
         (err) => {
           console.error('Error fetching channels:', err);
@@ -244,54 +344,120 @@ const ChannelList: React.FC<ChannelListProps> = ({ onSelectChannel, selectedChan
           {channels.length === 0 ? (
             <p className="text-gray-500 text-sm text-center py-2">No channels available. Create your first channel!</p>
           ) : (
-            channels.map(channel => (
-              <li key={channel.id}>
+            channels.map((channel, index) => (
+              <li key={`channel-${channel.id}-${index}`}>
                 <button
                   onClick={() => {
                     onSelectChannel(channel.id);
                     setSelectedChannel(channel);
                   }}
-                  className={`w-full flex items-center p-2 pl-0 rounded-md transition-colors ${
+                  className={`w-full flex items-center p-3 rounded-md transition-colors ${
                     selectedChannelId === channel.id 
                       ? 'bg-[#e6f0f0] text-[#004C54]' 
                       : 'hover:bg-gray-100 text-gray-700'
                   }`}
                 >
-                  {channel.isPublic ? (
-                    <FaHashtag className="ml-0 mr-2 flex-shrink-0" />
-                  ) : (
-                    <FaLock className="ml-0 mr-2 flex-shrink-0 text-gray-500" />
-                  )}
+                  <div className="flex-shrink-0 mr-3">
+                    {channel.imageUrl ? (
+                      <div className="relative w-12 h-12 rounded-lg overflow-hidden">
+                        <Image 
+                          src={channel.imageUrl} 
+                          alt={`${channel.name} icon`}
+                          fill
+                          sizes="48px"
+                          className="object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                        {channel.isPublic ? (
+                          <FaHashtag className="text-gray-500" size={24} />
+                        ) : (
+                          <FaLock className="text-gray-500" size={24} />
+                        )}
+                      </div>
+                    )}
+                  </div>
                   
-                  {/* Display channel image if available */}
-                  {channel.imageUrl && (
-                    <div className="relative w-6 h-6 mr-2 rounded-full overflow-hidden flex-shrink-0">
-                      <Image 
-                        src={channel.imageUrl} 
-                        alt={`${channel.name} icon`}
-                        fill
-                        sizes="24px"
-                        className="object-cover"
-                      />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center mb-1">
+                      <h3 className="font-medium truncate">
+                        {channel.name}
+                      </h3>
+                      {!channel.isPublic && (
+                        <FaLock className="ml-2 text-gray-400" size={12} />
+                      )}
                     </div>
-                  )}
-                  
-                  <span className="truncate text-left">{channel.name}</span>
-                  
-                  {/* Show admin badge if user is an admin */}
-                  {isUserAdmin(channel) && (
-                    <span className="ml-2 text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">
-                      Admin
-                    </span>
-                  )}
-                  
-                  {/* Show "Invited" badge if user is invited but not a member */}
-                  {!channel.members.includes(user?.uid || '') && 
-                   channel.invitedUsers?.includes(user?.email || '') && (
-                    <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                      Invited
-                    </span>
-                  )}
+                    
+                    <p className="text-sm text-gray-500 truncate">
+                      {channel.description || 'No description'}
+                    </p>
+                    
+                    <div className="flex items-center mt-2 space-x-2">
+                      <div className="flex -space-x-2">
+                        {channel.members.slice(0, 3).map((memberId, index) => {
+                          const memberDetails = channel.memberDetails?.[memberId];
+                          if (!memberDetails || memberDetails.status === 'deleted') return null;
+                          
+                          return (
+                            <div 
+                              key={`${memberId}-${index}`}
+                              className="relative w-6 h-6 rounded-full border-2 border-white overflow-hidden"
+                              style={{ zIndex: 3 - index }}
+                              title={memberDetails.fullName || memberDetails.displayName || 'Unknown User'}
+                            >
+                              {memberDetails.photoURL ? (
+                                <Image
+                                  src={memberDetails.photoURL}
+                                  alt={memberDetails.fullName || memberDetails.displayName}
+                                  fill
+                                  sizes="24px"
+                                  className="object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500 text-xs font-medium">
+                                  {(memberDetails.displayName?.[0] || '?').toUpperCase()}
+                                </div>
+                              )}
+                              {memberDetails.status === 'online' && (
+                                <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-white" />
+                              )}
+                            </div>
+                          );
+                        })}
+                        {channel.members.filter(id => {
+                          const details = channel.memberDetails?.[id];
+                          return details && details.status !== 'deleted';
+                        }).length > 3 && (
+                          <div 
+                            className="w-6 h-6 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-xs text-gray-500"
+                            title={`${channel.members.length - 3} more members`}
+                          >
+                            +{channel.members.length - 3}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center space-x-2 text-xs text-gray-500">
+                        <span>
+                          {channel.members.filter(id => {
+                            const details = channel.memberDetails?.[id];
+                            return details && details.status !== 'deleted';
+                          }).length} {channel.members.length === 1 ? 'member' : 'members'}
+                        </span>
+                        <span>•</span>
+                        <span>
+                          {channel.members.filter(id => channel.memberDetails?.[id]?.status === 'online').length} online
+                        </span>
+                      </div>
+                      
+                      {isUserAdmin(channel) && (
+                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                          Admin
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </button>
               </li>
             ))

@@ -13,6 +13,14 @@ interface User {
   displayName: string;
   email: string;
   photoURL?: string;
+  lastActive?: Date;
+  status: string;
+  phoneNumber?: string;
+  createdAt?: Date;
+  bio?: string;
+  location?: string;
+  socialLinks?: Record<string, string>;
+  role: string;
 }
 
 interface ManageChannelMembersModalProps {
@@ -50,32 +58,36 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
       setError('');
       
       try {
-        // In a real app, you would fetch user details for each member ID
-        // This is a simplified version that creates placeholder user objects
+        // Fetch complete user data for each member
         const memberUsers: User[] = await Promise.all(
           channel.members.map(async (memberId) => {
-            // Try to fetch real user data from Firestore
-            try {
-              const userDoc = await getDoc(doc(db, 'users', memberId));
-              if (userDoc.exists()) {
-                const userData = userDoc.data();
-                return {
-                  uid: memberId,
-                  displayName: userData.displayName || `User ${memberId.substring(0, 5)}`,
-                  email: userData.email || `user-${memberId.substring(0, 5)}@example.com`,
-                  photoURL: userData.photoURL
-                };
-              }
-            } catch (error) {
-              console.error('Error fetching user data:', error);
+            const userDoc = await getDoc(doc(db, 'users', memberId));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              // Always show complete user information
+              return {
+                uid: memberId,
+                displayName: userData.fullName || userData.displayName || 'Unknown User',
+                email: userData.email,
+                photoURL: userData.photoURL,
+                lastActive: userData.lastActive?.toDate() || null,
+                status: userData.status || 'offline',
+                phoneNumber: userData.phoneNumber,
+                createdAt: userData.createdAt?.toDate(),
+                bio: userData.bio,
+                location: userData.location,
+                socialLinks: userData.socialLinks || {},
+                role: channel.admins?.includes(memberId) ? 'admin' : 
+                      (channel.createdBy === memberId ? 'creator' : 'member')
+              };
             }
-            
-            // Fallback to placeholder data
             return {
               uid: memberId,
-              displayName: `User ${memberId.substring(0, 5)}`,
-              email: `user-${memberId.substring(0, 5)}@example.com`,
-              photoURL: undefined
+              displayName: 'Deleted Account',
+              email: 'Account no longer exists',
+              photoURL: '/default-avatar.png',
+              status: 'deleted',
+              role: 'deleted'
             };
           })
         );
@@ -83,14 +95,14 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
         setMembers(memberUsers);
       } catch (error) {
         console.error('Error fetching members:', error);
-        setError('Failed to load members');
+        setError('Failed to load member information');
       } finally {
         setIsLoading(false);
       }
     };
     
     fetchMembers();
-  }, [channel.members]);
+  }, [channel.members, channel.admins, channel.createdBy]);
 
   const handleToggleAdmin = async (userId: string) => {
     if (!user) return;
@@ -531,144 +543,194 @@ const MemberItem: React.FC<MemberItemProps> = ({
   isMuted = false,
   isBanned = false
 }) => {
-  const [showActions, setShowActions] = useState(false);
-  const actionsRef = useRef<HTMLDivElement>(null);
-  
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (actionsRef.current && !actionsRef.current.contains(event.target as Node)) {
-        setShowActions(false);
-      }
-    };
-    
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  const [showOptions, setShowOptions] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const optionsRef = useRef<HTMLDivElement>(null);
   
   return (
-    <li className="flex items-center justify-between p-2 rounded-md hover:bg-gray-50">
-      <div className="flex items-center">
-        {member.photoURL ? (
-          <div className="relative w-8 h-8 rounded-full overflow-hidden mr-3">
-            <Image
-              src={member.photoURL}
-              alt={member.displayName}
-              fill
-              sizes="32px"
-              className="object-cover"
+    <div className="flex flex-col p-3 hover:bg-gray-50 rounded-lg transition-colors">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3 flex-1">
+          <div className="relative">
+            <div className="w-12 h-12 rounded-full overflow-hidden">
+              <Image
+                src={member.photoURL || '/default-avatar.png'}
+                alt={member.displayName}
+                width={48}
+                height={48}
+                className="object-cover"
+              />
+            </div>
+            <div className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-white
+              ${member.status === 'online' ? 'bg-green-500' : 
+                member.status === 'offline' ? 'bg-gray-400' :
+                member.status === 'deleted' ? 'bg-red-500' : 'bg-yellow-500'}`}
             />
           </div>
-        ) : (
-          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center mr-3">
-            <span className="text-gray-600 font-medium">
-              {member.displayName.charAt(0).toUpperCase()}
-            </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center flex-wrap gap-2">
+              <h4 className="font-medium text-gray-900">
+                {member.displayName}
+              </h4>
+              {isCreator && (
+                <span className="px-2 py-0.5 bg-[#004C54] text-white text-xs rounded-full">
+                  Creator
+                </span>
+              )}
+              {isAdmin && !isCreator && (
+                <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
+                  Admin
+                </span>
+              )}
+              {isMuted && (
+                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded-full">
+                  Muted
+                </span>
+              )}
+              {isBanned && (
+                <span className="px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded-full">
+                  Banned
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-gray-600">{member.email}</p>
+            {member.phoneNumber && (
+              <p className="text-sm text-gray-500">{member.phoneNumber}</p>
+            )}
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs text-gray-400">
+                {member.status === 'online' ? 'Online' : 
+                 member.status === 'offline' ? 'Offline' : 
+                 member.status === 'away' ? 'Away' : 'Status unknown'}
+              </span>
+              {member.lastActive && (
+                <span className="text-xs text-gray-400">
+                  • Last active: {new Date(member.lastActive).toLocaleString()}
+                </span>
+              )}
+              <button
+                onClick={() => setShowDetails(!showDetails)}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                {showDetails ? 'Less info' : 'More info'}
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {currentUserIsAdmin && !isCreator && (
+          <div className="relative" ref={optionsRef}>
+            <button
+              onClick={() => setShowOptions(!showOptions)}
+              className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
+              aria-label="Member actions"
+            >
+              <FaEllipsisV size={14} />
+            </button>
+            
+            {showOptions && (
+              <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 py-1 border border-gray-200">
+                <button
+                  onClick={() => {
+                    onToggleAdmin();
+                    setShowOptions(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                >
+                  <FaUserShield className="mr-2" size={14} />
+                  {isAdmin ? 'Remove Admin' : 'Make Admin'}
+                </button>
+                
+                <button
+                  onClick={() => {
+                    if (onMute) onMute(member.uid, isMuted);
+                    setShowOptions(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                >
+                  {isMuted ? (
+                    <>
+                      <FaVolumeUp className="mr-2" size={14} />
+                      Unmute User
+                    </>
+                  ) : (
+                    <>
+                      <FaVolumeMute className="mr-2" size={14} />
+                      Mute User
+                    </>
+                  )}
+                </button>
+                
+                <button
+                  onClick={() => {
+                    if (onBan) onBan(member.uid, isBanned);
+                    setShowOptions(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                >
+                  {isBanned ? (
+                    <>
+                      <FaUserSlash className="mr-2" size={14} />
+                      Unban User
+                    </>
+                  ) : (
+                    <>
+                      <FaBan className="mr-2" size={14} />
+                      Ban User
+                    </>
+                  )}
+                </button>
+                
+                <button
+                  onClick={() => {
+                    if (onRemove) onRemove();
+                    setShowOptions(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
+                >
+                  <FaUserMinus className="mr-2" size={14} />
+                  Remove from Channel
+                </button>
+              </div>
+            )}
           </div>
         )}
-        
-        <div>
-          <div className="font-medium text-gray-800 flex items-center">
-            {member.displayName}
-            {isAdmin && (
-              <span className="ml-1 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
-                Admin
-              </span>
-            )}
-            {isCreator && (
-              <span className="ml-1 text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
-                Creator
-              </span>
-            )}
-            {isMuted && (
-              <span className="ml-1 text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded flex items-center">
-                <FaVolumeMute className="mr-1" size={10} />
-                Muted
-              </span>
-            )}
-          </div>
-          <div className="text-xs text-gray-500">{member.email}</div>
-        </div>
       </div>
-      
-      {currentUserIsAdmin && !isCreator && (
-        <div className="relative" ref={actionsRef}>
-          <button
-            onClick={() => setShowActions(!showActions)}
-            className="p-1.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
-            aria-label="Member actions"
-          >
-            <FaEllipsisV size={14} />
-          </button>
-          
-          {showActions && (
-            <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 py-1 border border-gray-200">
-              <button
-                onClick={() => {
-                  onToggleAdmin();
-                  setShowActions(false);
-                }}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-              >
-                <FaUserShield className="mr-2" size={14} />
-                {isAdmin ? 'Remove Admin' : 'Make Admin'}
-              </button>
-              
-              <button
-                onClick={() => {
-                  if (onMute) onMute(member.uid, isMuted);
-                  setShowActions(false);
-                }}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-              >
-                {isMuted ? (
-                  <>
-                    <FaVolumeUp className="mr-2" size={14} />
-                    Unmute User
-                  </>
-                ) : (
-                  <>
-                    <FaVolumeMute className="mr-2" size={14} />
-                    Mute User
-                  </>
-                )}
-              </button>
-              
-              <button
-                onClick={() => {
-                  if (onBan) onBan(member.uid, isBanned);
-                  setShowActions(false);
-                }}
-                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-              >
-                {isBanned ? (
-                  <>
-                    <FaUserSlash className="mr-2" size={14} />
-                    Unban User
-                  </>
-                ) : (
-                  <>
-                    <FaBan className="mr-2" size={14} />
-                    Ban User
-                  </>
-                )}
-              </button>
-              
-              <button
-                onClick={() => {
-                  if (onRemove) onRemove();
-                  setShowActions(false);
-                }}
-                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
-              >
-                <FaUserMinus className="mr-2" size={14} />
-                Remove from Channel
-              </button>
+
+      {showDetails && (
+        <div className="mt-3 pl-15 border-t pt-3 text-sm">
+          {member.bio && (
+            <p className="text-gray-600 mb-2">
+              <strong>Bio:</strong> {member.bio}
+            </p>
+          )}
+          {member.location && (
+            <p className="text-gray-600 mb-2">
+              <strong>Location:</strong> {member.location}
+            </p>
+          )}
+          {member.createdAt && (
+            <p className="text-gray-600 mb-2">
+              <strong>Joined:</strong> {member.createdAt.toLocaleDateString()}
+            </p>
+          )}
+          {member.socialLinks && Object.keys(member.socialLinks).length > 0 && (
+            <div className="text-gray-600">
+              <strong>Social Links:</strong>
+              <ul className="ml-4 mt-1">
+                {Object.entries(member.socialLinks).map(([platform, url]) => (
+                  <li key={platform}>
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                      {platform}
+                    </a>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>
       )}
-    </li>
+    </div>
   );
 };
 
