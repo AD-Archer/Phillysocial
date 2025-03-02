@@ -5,6 +5,15 @@ import { auth } from '../firebaseConfig';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 
+// Extend the Firebase User type
+type ExtendedUser = User & {
+  firestoreData?: {
+    displayName?: string;
+    photoURL?: string;
+    [key: string]: unknown;
+  };
+};
+
 interface AuthContextType {
   user: ExtendedUser | null;
   loading: boolean;
@@ -26,7 +35,6 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<ExtendedUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [firestoreLoading, setFirestoreLoading] = useState(true);
 
   // Function to ensure a user document exists in Firestore
   const ensureUserDocument = async (user: User) => {
@@ -61,8 +69,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (authUser) {
         // Ensure user document exists when user signs in
         await ensureUserDocument(authUser);
+        
+        // Fetch user data from Firestore
+        try {
+          const userRef = doc(db, 'users', authUser.uid);
+          const userSnap = await getDoc(userRef);
+          
+          if (userSnap.exists()) {
+            // Attach Firestore data to the user object
+            const extendedUser = {
+              ...authUser,
+              firestoreData: userSnap.data()
+            } as ExtendedUser;
+            
+            setUser(extendedUser);
+          } else {
+            setUser(authUser as ExtendedUser);
+          }
+        } catch (error) {
+          console.error('Error fetching user data from Firestore:', error);
+          setUser(authUser as ExtendedUser);
+        }
+      } else {
+        setUser(null);
       }
-      setUser(authUser);
       setLoading(false);
     });
 
@@ -81,8 +111,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Update the profile using the current user from auth
       await updateProfile(currentUser, profileData);
       
-      // Update the state with the latest user
-      setUser({ ...currentUser });
+      // Update the state with the latest user, preserving firestoreData
+      const updatedUser = { 
+        ...currentUser,
+        ...(user?.firestoreData && { firestoreData: user.firestoreData })
+      } as ExtendedUser;
+      
+      setUser(updatedUser);
       
       console.log('Profile updated successfully:', profileData);
     } catch (error) {

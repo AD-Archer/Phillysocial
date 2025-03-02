@@ -11,16 +11,6 @@ import CreateChannelModal from '../../models/CreateChannelModal';
 import JoinChannelModal from '../../models/JoinChannelModal';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface UserDetails {
-  displayName: string;
-  fullName?: string;
-  email: string;
-  photoURL?: string;
-  status: 'online' | 'offline' | 'away' | 'deleted';
-  lastActive?: Date;
-  role: 'member' | 'admin' | 'creator';
-}
-
 interface ChannelListProps {
   onSelectChannel: (channelId: string) => void;
   selectedChannelId: string | null;
@@ -188,9 +178,15 @@ const ChannelList: React.FC<ChannelListProps> = ({ onSelectChannel, selectedChan
   };
 
   // Filter channels based on search term
-  const filteredChannels = channels.filter(channel => 
-    channel.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredChannels = channels.filter(channel => {
+    if (!searchTerm.trim()) return true;
+    
+    const query = searchTerm.toLowerCase().trim();
+    return (
+      channel.name.toLowerCase().includes(query) || 
+      (channel.description && channel.description.toLowerCase().includes(query))
+    );
+  });
 
   // Sort channels: user's channels first, then public channels
   const sortedChannels = [...filteredChannels].sort((a, b) => {
@@ -202,21 +198,10 @@ const ChannelList: React.FC<ChannelListProps> = ({ onSelectChannel, selectedChan
     return a.name.localeCompare(b.name);
   });
 
-  // Filter channels based on search query
-  const filteredChannels = channels.filter(channel => {
-    if (!searchQuery.trim()) return true;
-    
-    const query = searchQuery.toLowerCase().trim();
-    return (
-      channel.name.toLowerCase().includes(query) || 
-      (channel.description && channel.description.toLowerCase().includes(query))
-    );
-  });
-
   // Clear search when user selects a channel
   useEffect(() => {
     if (selectedChannelId) {
-      setSearchQuery('');
+      setSearchTerm('');
     }
   }, [selectedChannelId]);
 

@@ -5,7 +5,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/context/AuthContext';
-import Link from 'next/link';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebaseConfig';
 import { useRouter } from 'next/navigation';
 
 interface HeaderProps {
@@ -17,6 +18,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick }) => {
   const { user } = useAuth();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -35,6 +37,17 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick }) => {
   const handleProfileToggle = () => {
     setIsProfileOpen(!isProfileOpen);
     onProfileClick(); // Keep the original handler for backward compatibility
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      setIsProfileOpen(false);
+      router.push('/');
+      console.log('User signed out successfully');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   // Get user's display name or first part of email
@@ -199,7 +212,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick }) => {
                         </Link>
                         <div className="border-t border-gray-200 my-1"></div>
                         <button
-                          onClick={onProfileClick} // This will trigger the sign out in the dashboard
+                          onClick={handleSignOut}
                           className="flex items-center space-x-3 px-4 py-3 text-red-600 hover:bg-red-50 transition-colors w-full text-left"
                         >
                           <FaSignOutAlt />

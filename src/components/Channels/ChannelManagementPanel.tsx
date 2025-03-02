@@ -3,9 +3,8 @@ import { useState, useEffect } from 'react';
 import { FaUsers, FaCog, FaLock, FaGlobe, FaTrash, FaEdit, FaUserShield, FaRandom, FaCalendarAlt, FaTimes, FaExclamationTriangle, FaSpinner, FaClipboard, FaCheck } from 'react-icons/fa';
 import { Channel } from '@/types/Channel';
 import { useAuth } from '@/lib/context/AuthContext';
-import ManageChannelMembersModal from '@/models/ManageChannelMembersModal';
+import { ManageChannelMembersModal } from '@/models/ManageChannelMembersModal';
 import EditChannelModal from '@/models/EditChannelModal';
-import BannedUsersModal from '@/models/BannedUsersModal';
 import { doc, updateDoc, deleteDoc, } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useToast } from '@/layouts/Toast';
@@ -299,12 +298,6 @@ const ChannelManagementPanel: React.FC<ChannelManagementPanelProps> = ({
                   <div className="flex justify-between mb-3">
                     <span className="text-sm text-gray-600">Invited Users:</span>
                     <span className="text-sm font-medium">{channel.invitedUsers.length}</span>
-                  </div>
-                )}
-                {channel.bannedUsers && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Banned Users:</span>
-                    <span className="text-sm font-medium">{channel.bannedUsers.length}</span>
                   </div>
                 )}
               </motion.div>

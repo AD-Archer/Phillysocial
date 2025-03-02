@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { FaNewspaper, FaUsers, FaUser, FaStream, FaTimes, FaHome, FaInfoCircle, FaCog } from 'react-icons/fa';
+import { FaNewspaper, FaUser, FaStream, FaTimes, FaHome, FaInfoCircle, FaCog } from 'react-icons/fa';
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 

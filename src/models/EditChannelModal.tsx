@@ -83,15 +83,8 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
         isPublic,
       };
       
-      // Handle imageUrl properly to avoid undefined values
       if (imageUrl !== channel.imageUrl) {
-        const trimmedImageUrl = imageUrl.trim();
-        if (trimmedImageUrl) {
-          updates.imageUrl = trimmedImageUrl;
-        } else {
-          // Use empty string instead of null or undefined for empty values
-          updates.imageUrl = '';
-        }
+        updates.imageUrl = imageUrl.trim() || undefined;
       }
       
       await updateDoc(channelRef, updates);
@@ -135,7 +128,7 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="fixed inset-0 backdrop-blur-md bg-black/30 flex items-center justify-center z-50 p-4 overflow-y-auto">
         <motion.div 
           className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col"
           variants={modalVariants}
@@ -143,11 +136,11 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
           animate="visible"
           exit="exit"
         >
-          <div className="flex justify-between items-center p-4 border-b">
-            <h2 className="text-lg font-semibold text-[#004C54]">Edit Channel</h2>
+          <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gradient-to-r from-[#003940] to-[#046A38] text-white rounded-t-lg">
+            <h2 className="text-lg font-semibold">Edit Channel</h2>
             <motion.button 
               onClick={onClose} 
-              className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100 transition-colors"
+              className="text-white hover:text-[#A5ACAF] p-1 rounded-full hover:bg-black/20 transition-colors"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
             >
@@ -306,7 +299,7 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
               </motion.button>
               <motion.button
                 type="submit"
-                className="px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940] transition-colors flex items-center"
+                className="px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940] transition-colors flex items-center shadow-md"
                 disabled={isLoading || isCheckingName}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
