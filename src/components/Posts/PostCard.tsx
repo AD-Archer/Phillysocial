@@ -6,6 +6,8 @@ import { db } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Post, Comment } from '@/types/Post';
 import Image from 'next/image';
+import UserAvatar from '@/components/UserAvatar';
+import UserProfileLink from '@/components/UserProfileLink';
 
 // Simple date formatter until date-fns is installed
 const formatTimeAgo = (date: Date | { toDate: () => Date } | unknown): string => {
@@ -136,24 +138,20 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, postId, onReplyAdded
   return (
     <div style={{ marginLeft }}>
       <div className="flex space-x-2">
-        <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
-          {authorInfo.photoURL ? (
-            <Image
-              src={authorInfo.photoURL}
-              alt={authorInfo.name}
-              width={32}
-              height={32}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-500 text-xs font-medium">
-              {authorInfo.name[0].toUpperCase()}
-            </div>
-          )}
-        </div>
+        <UserAvatar
+          userId={comment.authorId}
+          displayName={authorInfo.name}
+          photoURL={authorInfo.photoURL}
+          size={32}
+          className="flex-shrink-0"
+        />
         <div className="flex-1 bg-gray-100 rounded-lg p-2">
           <div className="flex justify-between items-center">
-            <span className="font-medium text-sm">{authorInfo.name}</span>
+            <UserProfileLink 
+              userId={comment.authorId}
+              displayName={authorInfo.name}
+              className="font-medium text-sm"
+            />
             <span className="text-xs text-gray-500">
               {formatTimeAgo(createdAt)}
             </span>
@@ -475,20 +473,21 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
         </div>
       )}
       <div className="flex items-start space-x-3">
-        <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
-          <Image
-            src={authorInfo.photoURL}
-            alt={`${authorInfo.name}'s profile`}
-            width={40}
-            height={40}
-            className="w-full h-full object-cover"
-          />
-        </div>
+        <UserAvatar
+          userId={post.authorId}
+          displayName={authorInfo.name}
+          photoURL={authorInfo.photoURL}
+          size={40}
+        />
         
         <div className="flex-1 min-w-0">
           <div className="flex justify-between items-start">
             <div>
-              <h3 className="font-medium text-gray-900">{authorInfo.name}</h3>
+              <UserProfileLink 
+                userId={post.authorId}
+                displayName={authorInfo.name}
+                className="font-medium text-gray-900"
+              />
               <p className="text-xs text-gray-500">
                 {formatTimeAgo(post.createdAt)}
               </p>
