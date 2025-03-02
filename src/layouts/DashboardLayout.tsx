@@ -2,8 +2,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/context/AuthContext';
-import { auth } from '@/lib/firebaseConfig';
-import { signOut } from 'firebase/auth';
 import Sidebar from '@/layouts/Sidebar';
 import Header from '@/layouts/Header';
 import { motion } from 'framer-motion';
@@ -18,7 +16,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -45,15 +42,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       document.head.appendChild(style);
     }
   }, [user, loading, router]);
-
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      router.push('/');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
 
   // Quick links for dashboard
   const quickLinks = [
@@ -82,24 +70,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header 
         onMenuClick={() => setIsSidebarOpen(true)}
-        onProfileClick={() => setIsProfileOpen(!isProfileOpen)}
+        onProfileClick={() => {}}
       />
       
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-
-      {/* Profile Dropdown */}
-      {isProfileOpen && (
-        <div className="absolute right-4 top-16 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
-          <div className="py-1">
-            <button
-              onClick={handleSignOut}
-              className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Main Content */}
       <div className="pt-16 flex-1 flex flex-col">
