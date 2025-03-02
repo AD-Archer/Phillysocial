@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from '@lib/context/AuthContext';
 import { ToastProvider } from '@/layouts/Toast';
+import ClientLayout from './ClientLayout';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,6 +18,22 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Philly Social",
   description: "Connect with Philly",
+  keywords: "Philly, social, news, events, community",
+  authors: [{ name: "Antonio Archer" }],
+  openGraph: {
+    title: "Philly Social",
+    description: "Connect with Philly",
+    url: "https://phillysocial.adarcher.app",
+    images: [
+      {
+        url: "/Logo.png",
+        width: 800,
+        height: 600,
+        alt: "Philly Social Icon",
+      },
+    ],
+  },
+  metadataBase: new URL("https://phillysocial.adarcher.app"),
 };
 
 export default function RootLayout({
@@ -31,7 +48,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           <ToastProvider>
-            {children}
+            <ClientLayout>{children}</ClientLayout>
           </ToastProvider>
         </AuthProvider>
       </body>

@@ -1,7 +1,7 @@
 'use client';
-import { useState } from 'react';
-import { FaHeart, FaRegHeart, FaComment, FaEllipsisH } from 'react-icons/fa';
-import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { useState, useRef, useEffect } from 'react';
+import { FaHeart, FaRegHeart, FaComment, FaEllipsisH, FaTrash, FaEdit } from 'react-icons/fa';
+import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Post, Comment } from '@/types/Post';
@@ -29,15 +29,49 @@ const formatTimeAgo = (date: Date): string => {
 
 interface PostCardProps {
   post: Post;
+  channel?: {
+    admins: string[];
+  };
+  onPostDeleted?: (postId: string) => void;
+  onPostEdited?: (postId: string, newContent: string, editedAt: Date) => void;
 }
 
-const PostCard: React.FC<PostCardProps> = ({ post }) => {
+const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPostEdited }) => {
   const [isLiked, setIsLiked] = useState(post.likes.includes(useAuth().user?.uid || ''));
   const [likeCount, setLikeCount] = useState(post.likes.length);
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState(post.content);
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  const optionsRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+
+  // Check if current user is admin or post creator
+  const isAdmin = channel?.admins?.includes(user?.uid || '');
+  const isPostCreator = post.authorId === user?.uid;
+  // Only post creator can edit, admins can only delete
+  const canEditPost = isPostCreator;
+  
+  // Handle click outside to close options menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (optionsRef.current && !optionsRef.current.contains(event.target as Node)) {
+        setShowOptions(false);
+      }
+    };
+
+    if (showOptions) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showOptions]);
 
   const handleLike = async () => {
     if (!user) return;
@@ -94,8 +128,82 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
     }
   };
 
+  const handleDeletePost = async () => {
+    if (!user) return;
+    
+    if (!window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+      return;
+    }
+    
+    setIsDeleting(true);
+    setShowOptions(false);
+    
+    try {
+      const postRef = doc(db, 'posts', post.id);
+      await deleteDoc(postRef);
+      
+      // Notify parent component about deletion
+      if (onPostDeleted) {
+        onPostDeleted(post.id);
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      alert('Failed to delete post. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleEditPost = () => {
+    setIsEditing(true);
+    setShowOptions(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedContent(post.content);
+  };
+
+  const handleSubmitEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!user || !canEditPost || !editedContent.trim()) return;
+    
+    setIsSubmittingEdit(true);
+    
+    try {
+      const now = new Date();
+      const postRef = doc(db, 'posts', post.id);
+      await updateDoc(postRef, {
+        content: editedContent.trim(),
+        lastEdited: now,
+      });
+      
+      // Update local state
+      post.content = editedContent.trim();
+      post.lastEdited = now;
+      
+      // Notify parent component about edit
+      if (onPostEdited) {
+        onPostEdited(post.id, editedContent.trim(), now);
+      }
+      
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error updating post:', error);
+      alert('Failed to update post. Please try again.');
+    } finally {
+      setIsSubmittingEdit(false);
+    }
+  };
+
   return (
-    <div className="bg-white rounded-lg shadow-md p-4">
+    <div className={`bg-white rounded-lg shadow-md p-4 relative ${isDeleting ? 'opacity-60 pointer-events-none' : ''}`}>
+      {isDeleting && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-50 z-10 rounded-lg">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#004C54]"></div>
+        </div>
+      )}
       <div className="flex items-start space-x-3">
         <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
           <Image
@@ -116,23 +224,75 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
               </p>
             </div>
             
-            <button className="text-gray-400 hover:text-gray-600">
-              <FaEllipsisH size={16} />
-            </button>
+            {(isPostCreator || isAdmin) && (
+              <div className="relative" ref={optionsRef}>
+                <button 
+                  className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"
+                  onClick={() => setShowOptions(!showOptions)}
+                  aria-label="Post options"
+                >
+                  <FaEllipsisH size={16} />
+                </button>
+                
+                {showOptions && (
+                  <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-20 py-1 border border-gray-200">
+                    {canEditPost && (
+                      <button
+                        onClick={handleEditPost}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center transition-colors"
+                      >
+                        <FaEdit className="mr-2" size={14} />
+                        Edit post
+                      </button>
+                    )}
+                    <button
+                      onClick={handleDeletePost}
+                      disabled={isDeleting}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center transition-colors"
+                    >
+                      <FaTrash className="mr-2" size={14} />
+                      {isDeleting ? 'Deleting...' : 'Delete post'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           
-          <p className="mt-2 text-gray-700 whitespace-pre-wrap break-words">{post.content}</p>
-          
-          {post.imageUrl && (
-            <div className="mt-3">
-              <Image
-                src={post.imageUrl}
-                alt="Post attachment"
-                width={600}
-                height={400}
-                className="w-full max-h-96 object-cover rounded-lg"
+          {isEditing ? (
+            <form onSubmit={handleSubmitEdit} className="mt-2">
+              <textarea
+                value={editedContent}
+                onChange={(e) => setEditedContent(e.target.value)}
+                className="w-full p-2 border rounded-md text-sm focus:ring-[#004C54] focus:border-[#004C54] min-h-[100px]"
+                placeholder="What's on your mind?"
               />
-            </div>
+              <div className="flex justify-end space-x-2 mt-2">
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="px-3 py-1 border border-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!editedContent.trim() || isSubmittingEdit}
+                  className="px-3 py-1 bg-[#004C54] text-white text-sm rounded-md hover:bg-[#003940] disabled:opacity-50"
+                >
+                  {isSubmittingEdit ? 'Saving...' : 'Save changes'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <p className="mt-2 text-gray-700 whitespace-pre-wrap break-words">{post.content}</p>
+              {post.lastEdited && (
+                <p className="text-xs text-gray-400 mt-1 italic">
+                  Edited {formatTimeAgo(post.lastEdited)}
+                </p>
+              )}
+            </>
           )}
           
           <div className="mt-4 flex items-center space-x-4">

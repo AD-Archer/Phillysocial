@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { doc, getDoc, updateDoc, arrayUnion, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { Channel } from '@/types/Channel';
 import { useAuth } from '@/lib/context/AuthContext';
@@ -26,52 +26,62 @@ const ChannelView: React.FC<ChannelViewProps> = ({ channelId }) => {
   const { showToast } = useToast();
   const router = useRouter();
 
+  // Set up real-time listener for channel data
   useEffect(() => {
-    const fetchChannel = async () => {
-      if (!channelId) {
-        setChannel(null);
-        return;
-      }
-      
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        const channelDoc = await getDoc(doc(db, 'channels', channelId));
-        
-        if (!channelDoc.exists()) {
-          setError('Channel not found');
-          setChannel(null);
-          return;
-        }
-        
-        const data = channelDoc.data();
-        const channelData: Channel = {
-          id: channelDoc.id,
-          name: data.name,
-          description: data.description,
-          isPublic: data.isPublic,
-          createdBy: data.createdBy,
-          createdAt: data.createdAt,
-          members: data.members || [],
-          admins: data.admins || [],
-          bannedUsers: data.bannedUsers || [],
-          mutedUsers: data.mutedUsers || [],
-          invitedUsers: data.invitedUsers || [],
-          inviteCode: data.inviteCode,
-          imageUrl: data.imageUrl || null,
-        };
-        
-        setChannel(channelData);
-      } catch (error) {
-        console.error('Error fetching channel:', error);
-        setError('Failed to load channel');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    if (!channelId) {
+      setChannel(null);
+      return;
+    }
     
-    fetchChannel();
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const channelRef = doc(db, 'channels', channelId);
+      
+      const unsubscribe = onSnapshot(
+        channelRef,
+        (doc) => {
+          if (!doc.exists()) {
+            setError('Channel not found');
+            setChannel(null);
+            setIsLoading(false);
+            return;
+          }
+          
+          const data = doc.data();
+          const channelData: Channel = {
+            id: doc.id,
+            name: data.name,
+            description: data.description,
+            isPublic: data.isPublic,
+            createdBy: data.createdBy,
+            createdAt: data.createdAt.toDate(),
+            members: data.members || [],
+            admins: data.admins || [],
+            bannedUsers: data.bannedUsers || [],
+            mutedUsers: data.mutedUsers || [],
+            invitedUsers: data.invitedUsers || [],
+            inviteCode: data.inviteCode,
+            imageUrl: data.imageUrl || null,
+          };
+          
+          setChannel(channelData);
+          setIsLoading(false);
+        },
+        (err) => {
+          console.error('Error fetching channel:', err);
+          setError('Failed to load channel');
+          setIsLoading(false);
+        }
+      );
+      
+      return () => unsubscribe();
+    } catch (error) {
+      console.error('Error setting up channel listener:', error);
+      setError('Failed to set up real-time updates for channel');
+      setIsLoading(false);
+    }
   }, [channelId]);
 
   // Function to check if the current user is a member

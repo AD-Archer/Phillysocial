@@ -6,6 +6,7 @@ export interface Post {
   authorPhotoURL?: string;
   channelId: string;
   createdAt: Date;
+  lastEdited?: Date;
   likes: string[]; // user IDs
   comments: Comment[];
   imageUrl?: string;

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { FaPlus, FaHashtag, FaExclamationTriangle, FaLock, FaKey, FaCopy } from 'react-icons/fa';
 import Image from 'next/image';
 import { Channel } from '@/types/Channel';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
 import { useToast } from '../../layouts/Toast';
@@ -26,90 +26,114 @@ const ChannelList: React.FC<ChannelListProps> = ({ onSelectChannel, selectedChan
   const [showInviteCode, setShowInviteCode] = useState(false);
   const { showToast } = useToast();
 
+  // Set up real-time listener for channels
   useEffect(() => {
-    const fetchChannels = async () => {
-      if (!user) return;
+    if (!user) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const channelsRef = collection(db, 'channels');
+      const q = query(channelsRef);
       
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        const channelsRef = collection(db, 'channels');
-        const channelsSnapshot = await getDocs(channelsRef);
-        
-        const fetchedChannels: Channel[] = [];
-        channelsSnapshot.forEach(doc => {
-          const data = doc.data();
-          // Make sure createdAt is properly handled
-          const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
-          
-          const channel = {
-            id: doc.id,
-            name: data.name || 'Unnamed Channel',
-            description: data.description || '',
-            createdBy: data.createdBy || '',
-            createdAt: createdAt,
-            members: data.members || [],
-            admins: data.admins || [data.createdBy],
-            isPublic: data.isPublic !== undefined ? data.isPublic : true,
-            imageUrl: data.imageUrl,
-            invitedUsers: data.invitedUsers || [],
-            inviteCode: data.inviteCode,
-            bannedUsers: data.bannedUsers || [],
-            mutedUsers: data.mutedUsers || [],
-            deleted: data.deleted
-          };
-          
-          // Skip deleted channels
-          if (channel.deleted) return;
-          
-          // Skip channels where the user is banned
-          if (channel.bannedUsers?.includes(user.uid)) return;
-          
-          // Only include channels that:
-          // 1. Are public, OR
-          // 2. User is a member, OR
-          // 3. User is invited
-          if (
-            channel.isPublic || 
-            channel.members.includes(user.uid) || 
-            (channel.invitedUsers && channel.invitedUsers.includes(user.email))
-          ) {
-            fetchedChannels.push(channel);
-          }
-        });
-        
-        setChannels(fetchedChannels.sort((a, b) => a.name.localeCompare(b.name)));
-        
-        // If a channel is selected, fetch its details
-        if (selectedChannelId) {
-          const channelDoc = await getDoc(doc(db, 'channels', selectedChannelId));
-          if (channelDoc.exists()) {
-            const data = channelDoc.data();
-            setSelectedChannel({
-              id: channelDoc.id,
-              name: data.name,
-              description: data.description,
-              createdBy: data.createdBy,
-              createdAt: data.createdAt.toDate(),
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const fetchedChannels: Channel[] = [];
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            // Make sure createdAt is properly handled
+            const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
+            
+            const channel = {
+              id: doc.id,
+              name: data.name || 'Unnamed Channel',
+              description: data.description || '',
+              createdBy: data.createdBy || '',
+              createdAt: createdAt,
               members: data.members || [],
               admins: data.admins || [data.createdBy],
-              isPublic: data.isPublic,
+              isPublic: data.isPublic !== undefined ? data.isPublic : true,
+              imageUrl: data.imageUrl,
+              invitedUsers: data.invitedUsers || [],
               inviteCode: data.inviteCode,
-              imageUrl: data.imageUrl
-            });
-          }
+              bannedUsers: data.bannedUsers || [],
+              mutedUsers: data.mutedUsers || [],
+              deleted: data.deleted
+            };
+            
+            // Skip deleted channels
+            if (channel.deleted) return;
+            
+            // Skip channels where the user is banned
+            if (channel.bannedUsers?.includes(user.uid)) return;
+            
+            // Only include channels that:
+            // 1. Are public, OR
+            // 2. User is a member, OR
+            // 3. User is invited
+            if (
+              channel.isPublic || 
+              channel.members.includes(user.uid) || 
+              (channel.invitedUsers && channel.invitedUsers.includes(user.email))
+            ) {
+              fetchedChannels.push(channel);
+            }
+          });
+          
+          setChannels(fetchedChannels.sort((a, b) => a.name.localeCompare(b.name)));
+          setIsLoading(false);
+        },
+        (err) => {
+          console.error('Error fetching channels:', err);
+          setError('Failed to load channels. Please check your permissions.');
+          setIsLoading(false);
         }
-      } catch (error) {
-        console.error('Error fetching channels:', error);
-        setError('Failed to load channels. Please check your permissions.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      );
+      
+      return () => unsubscribe();
+    } catch (error) {
+      console.error('Error setting up channels listener:', error);
+      setError('Failed to set up real-time updates for channels.');
+      setIsLoading(false);
+    }
+  }, [user]);
+
+  // Set up real-time listener for selected channel
+  useEffect(() => {
+    if (!selectedChannelId || !user) return;
     
-    fetchChannels();
-  }, [user, selectedChannelId]);
+    const channelRef = doc(db, 'channels', selectedChannelId);
+    
+    const unsubscribe = onSnapshot(
+      channelRef,
+      (doc) => {
+        if (doc.exists()) {
+          const data = doc.data();
+          setSelectedChannel({
+            id: doc.id,
+            name: data.name,
+            description: data.description,
+            createdBy: data.createdBy,
+            createdAt: data.createdAt.toDate(),
+            members: data.members || [],
+            admins: data.admins || [data.createdBy],
+            isPublic: data.isPublic,
+            inviteCode: data.inviteCode,
+            imageUrl: data.imageUrl
+          });
+        } else {
+          setSelectedChannel(null);
+        }
+      },
+      (error) => {
+        console.error('Error fetching selected channel:', error);
+      }
+    );
+    
+    return () => unsubscribe();
+  }, [selectedChannelId, user]);
 
   const handleCreateChannel = (newChannel: Channel) => {
     setChannels(prev => [...prev, newChannel].sort((a, b) => a.name.localeCompare(b.name)));
