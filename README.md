@@ -26,6 +26,9 @@ Many communities struggle with accessibility, engagement, and coordination when 
 - **Date Handling**: date-fns 4.1.0
 - **RSS Parsing**: rss-parser 3.13.0
 
+## Hosting
+- **Vercel** - heres the link [PhillySocial](https://phillysocial.adarcher.app/)
+
 ## Installation
 
 ### Prerequisites
