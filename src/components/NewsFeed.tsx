@@ -1,13 +1,14 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { NewsItem, PaginatedNewsResponse, PaginationInfo } from '@/types/News';
-import { FaNewspaper, FaExternalLinkAlt, FaExclamationTriangle, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaNewspaper, FaExternalLinkAlt, FaExclamationTriangle, FaChevronLeft, FaChevronRight, FaCheckSquare, FaRegSquare } from 'react-icons/fa';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 interface NewsFeedProps {
   category?: string;
   itemsPerPage?: number;
+  hidePhillyToggle?: boolean;
 }
 
 // Format date relative to now
@@ -46,7 +47,11 @@ const formatTimeAgo = (dateString: string): string => {
   });
 };
 
-const NewsFeed: React.FC<NewsFeedProps> = ({ category, itemsPerPage = 12 }) => {
+const NewsFeed: React.FC<NewsFeedProps> = ({ 
+  category, 
+  itemsPerPage = 12,
+  hidePhillyToggle = false
+}) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -55,9 +60,27 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ category, itemsPerPage = 12 }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFallbackData, setIsFallbackData] = useState(false);
+  const [phillyNewsOnly, setPhillyNewsOnly] = useState(true);
   
   // Get current page from URL or default to 1
   const currentPage = parseInt(searchParams.get('page') || '1');
+
+  // Function to update URL with current filters
+  const updateUrlParams = (params: { [key: string]: string }) => {
+    const newParams = new URLSearchParams(searchParams);
+    Object.entries(params).forEach(([key, value]) => {
+      newParams.set(key, value);
+    });
+    router.push(`?${newParams.toString()}`);
+  };
+
+  useEffect(() => {
+    // Check if phillyNewsOnly param exists in URL
+    const phillyParam = searchParams.get('phillyOnly');
+    if (phillyParam !== null) {
+      setPhillyNewsOnly(phillyParam === 'true');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchNews = async () => {
@@ -70,6 +93,7 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ category, itemsPerPage = 12 }) => {
         if (category) params.append('category', category);
         params.append('itemsPerPage', itemsPerPage.toString());
         params.append('page', currentPage.toString());
+        params.append('phillyOnly', phillyNewsOnly.toString());
         
         const response = await fetch(`/api/news?${params}`);
         if (!response.ok) throw new Error('Failed to fetch news');
@@ -92,13 +116,18 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ category, itemsPerPage = 12 }) => {
     };
 
     fetchNews();
-  }, [category, itemsPerPage, currentPage]);
+  }, [category, itemsPerPage, currentPage, phillyNewsOnly]);
+
+  // Function to toggle Philly news filter
+  const togglePhillyNewsFilter = () => {
+    const newValue = !phillyNewsOnly;
+    setPhillyNewsOnly(newValue);
+    updateUrlParams({ phillyOnly: newValue.toString(), page: '1' });
+  };
 
   // Function to navigate to a specific page
   const goToPage = (page: number) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('page', page.toString());
-    router.push(`?${params.toString()}`);
+    updateUrlParams({ page: page.toString() });
   };
 
   // Pagination UI component
@@ -240,18 +269,38 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ category, itemsPerPage = 12 }) => {
 
   return (
     <>
+      {/* News Filter Controls */}
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+        {!hidePhillyToggle && (
+          <div className="flex items-center mb-4 sm:mb-0">
+            <button 
+              onClick={togglePhillyNewsFilter}
+              className="flex items-center text-gray-700 hover:text-[#004C54] transition-colors"
+              aria-label={phillyNewsOnly ? "Show all news" : "Show only Philadelphia news"}
+            >
+              {phillyNewsOnly ? (
+                <FaCheckSquare className="w-5 h-5 mr-2 text-[#004C54]" />
+              ) : (
+                <FaRegSquare className="w-5 h-5 mr-2" />
+              )}
+              <span className="font-medium">Philadelphia News Only</span>
+            </button>
+          </div>
+        )}
+        
+        {pagination && pagination.totalItems > 0 && (
+          <div className={`text-sm text-gray-500 ${!hidePhillyToggle ? '' : 'ml-auto'}`}>
+            Showing {(pagination.currentPage - 1) * pagination.itemsPerPage + 1} to {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of {pagination.totalItems} news items
+          </div>
+        )}
+      </div>
+      
       {isFallbackData && (
         <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
           <p className="text-yellow-700 text-sm">
             <FaExclamationTriangle className="inline-block mr-2" />
             We&apos;re currently experiencing issues with our news feeds. Showing placeholder content until our feeds are back online.
           </p>
-        </div>
-      )}
-      
-      {pagination && pagination.totalItems > 0 && (
-        <div className="mb-4 text-sm text-gray-500">
-          Showing {(pagination.currentPage - 1) * pagination.itemsPerPage + 1} to {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of {pagination.totalItems} news items
         </div>
       )}
       
@@ -263,13 +312,13 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ category, itemsPerPage = 12 }) => {
                 {/* Source badge - always visible on top of the image */}
                 <div className="absolute top-3 left-3 z-10 flex items-center bg-white bg-opacity-90 rounded-full px-2 py-1 shadow-sm">
                   {item.sourceIcon ? (
-                    <div className="relative w-6 h-6 mr-2">
+                    <div className="relative w-6 h-6 mr-2 flex-shrink-0 overflow-hidden">
                       <Image
                         src={item.sourceIcon}
                         alt={item.source}
                         width={24}
                         height={24}
-                        className="rounded-full object-cover"
+                        className="rounded-full object-contain"
                         onError={(e) => {
                           // If source icon fails to load, replace with a source initial
                           const target = e.target as HTMLImageElement;
@@ -288,11 +337,16 @@ const NewsFeed: React.FC<NewsFeedProps> = ({ category, itemsPerPage = 12 }) => {
                       />
                     </div>
                   ) : (
-                    <div className="w-6 h-6 flex items-center justify-center bg-[#004C54] rounded-full text-white text-xs font-bold mr-2">
+                    <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center bg-[#004C54] rounded-full text-white text-xs font-bold mr-2">
                       {item.source.charAt(0)}
                     </div>
                   )}
-                  <span className="text-xs font-medium text-gray-800">{item.source}</span>
+                  <span className="text-xs font-medium text-gray-800 truncate max-w-[100px]">{item.source}</span>
+                  {item.isPhillyNews && (
+                    <span className="ml-1 inline-flex items-center justify-center w-4 h-4 bg-[#046A38] rounded-full flex-shrink-0">
+                      <span className="text-white text-[8px] font-bold">P</span>
+                    </span>
+                  )}
                 </div>
                 
                 {item.imageUrl ? (

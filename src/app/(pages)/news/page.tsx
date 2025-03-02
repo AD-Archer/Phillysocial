@@ -1,8 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import NewsFeed from '@/components/NewsFeed';
-import { FaNewspaper, FaFilter, FaTags } from 'react-icons/fa';
+import { FaNewspaper, FaFilter, FaTags, FaCheckSquare, FaRegSquare } from 'react-icons/fa';
 import Link from 'next/link';
 
 export default function NewsPage() {
@@ -14,6 +14,17 @@ export default function NewsPage() {
   const [itemsPerPage, setItemsPerPage] = useState(
     parseInt(searchParams.get('itemsPerPage') || '12')
   );
+  const [phillyNewsOnly, setPhillyNewsOnly] = useState(
+    searchParams.get('phillyOnly') !== 'false'
+  );
+
+  useEffect(() => {
+    // Update phillyNewsOnly state when URL changes
+    const phillyParam = searchParams.get('phillyOnly');
+    if (phillyParam !== null) {
+      setPhillyNewsOnly(phillyParam === 'true');
+    }
+  }, [searchParams]);
 
   const handleCategoryChange = (category: string | null) => {
     setSelectedCategory(category);
@@ -36,6 +47,17 @@ export default function NewsPage() {
     const params = new URLSearchParams(searchParams);
     params.set('itemsPerPage', value.toString());
     params.set('page', '1'); // Reset to page 1 when changing items per page
+    router.push(`/news?${params.toString()}`);
+  };
+
+  const togglePhillyNewsFilter = () => {
+    const newValue = !phillyNewsOnly;
+    setPhillyNewsOnly(newValue);
+    
+    // Update URL with new phillyOnly value and reset to page 1
+    const params = new URLSearchParams(searchParams);
+    params.set('phillyOnly', newValue.toString());
+    params.set('page', '1'); // Reset to page 1 when changing filter
     router.push(`/news?${params.toString()}`);
   };
 
@@ -62,14 +84,30 @@ export default function NewsPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center">
               <FaNewspaper className="mr-2 text-[#004C54]" />
-              Philadelphia News
+              {phillyNewsOnly ? 'Philadelphia News' : 'All News'}
             </h1>
             <p className="mt-1 text-sm text-gray-500">
-              Stay updated with the latest news from Philadelphia&apos;s top sources
+              {phillyNewsOnly 
+                ? "Stay updated with the latest news from Philadelphia's top sources"
+                : "Browse news from Philadelphia and around the world"}
             </p>
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3">
+            {/* Philly News Toggle */}
+            <button 
+              onClick={togglePhillyNewsFilter}
+              className="flex items-center text-gray-700 hover:text-[#004C54] transition-colors px-3 py-2 bg-white rounded-md shadow-sm"
+              aria-label={phillyNewsOnly ? "Show all news" : "Show only Philadelphia news"}
+            >
+              {phillyNewsOnly ? (
+                <FaCheckSquare className="w-5 h-5 mr-2 text-[#004C54]" />
+              ) : (
+                <FaRegSquare className="w-5 h-5 mr-2" />
+              )}
+              <span className="font-medium">Philadelphia News Only</span>
+            </button>
+            
             {/* Category Filter */}
             <div className="relative">
               <div className="flex items-center space-x-2">
@@ -129,7 +167,8 @@ export default function NewsPage() {
 
       <NewsFeed 
         category={selectedCategory || undefined} 
-        itemsPerPage={itemsPerPage} 
+        itemsPerPage={itemsPerPage}
+        hidePhillyToggle={true}
       />
     </>
   );

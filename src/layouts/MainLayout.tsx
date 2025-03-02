@@ -15,7 +15,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col overflow-x-hidden">
       <Header 
         onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)}
         onProfileClick={() => setIsProfileOpen(!isProfileOpen)}
@@ -36,8 +36,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </div>
       )}
       
-      <main className="flex-grow bg-gradient-to-b from-[#e6f0f0] to-[#d0e0e0] w-full pt-16">
-        <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+      <main className="flex-grow w-full pt-16">
+        <div className="mx-auto">
           {children}
         </div>
       </main>

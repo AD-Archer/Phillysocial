@@ -114,16 +114,16 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ onClose, onChan
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-        <div className="flex justify-between items-center p-4 border-b">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
+        <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white z-10">
           <h2 className="text-lg font-semibold text-[#004C54]">Create New Channel</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
             <FaTimes />
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-4">
+        <form id="createChannelForm" onSubmit={handleSubmit} className="p-4 overflow-y-auto flex-1">
           <div className="mb-4">
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
               Channel Name*
@@ -240,24 +240,26 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ onClose, onChan
               {error}
             </div>
           )}
-          
-          <div className="flex justify-end space-x-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="px-4 py-2 text-sm bg-[#004C54] text-white rounded-md hover:bg-[#003940] disabled:opacity-50"
-            >
-              {isLoading ? 'Creating...' : 'Create Channel'}
-            </button>
-          </div>
         </form>
+        
+        <div className="flex justify-end space-x-3 p-4 border-t sticky bottom-0 bg-white">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
+            disabled={isLoading}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="createChannelForm"
+            className="px-4 py-2 text-sm bg-[#004C54] text-white rounded-md hover:bg-[#003940] disabled:bg-gray-400"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Creating...' : 'Create Channel'}
+          </button>
+        </div>
       </div>
     </div>
   );

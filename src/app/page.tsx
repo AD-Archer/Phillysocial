@@ -5,7 +5,7 @@ import MainLayout from '@/layouts/MainLayout';
 export default function Home() {
   return (
     <MainLayout>
-      <div className="min-h-screen bg-gradient-to-br from-[#003038] via-[#004C54] to-[#046A38] text-white">
+      <div className="min-h-screen bg-gradient-to-br from-[#003038] via-[#004C54] to-[#046A38] text-white -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8">
         <div className="absolute inset-0 bg-black/10 backdrop-blur-[2px]"></div>
         <div className="relative">
           {/* Hero Section */}

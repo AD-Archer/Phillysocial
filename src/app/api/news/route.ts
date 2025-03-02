@@ -153,13 +153,21 @@ export async function GET(request: Request) {
     const category = searchParams.get('category');
     const itemsPerPage = parseInt(searchParams.get('itemsPerPage') || '12');
     const page = parseInt(searchParams.get('page') || '1');
+    const phillyOnly = searchParams.get('phillyOnly') !== 'false'; // Default to true if not specified
     
     // Ensure page is at least 1
     const currentPage = page < 1 ? 1 : page;
     
-    const sources = category 
-      ? NEWS_SOURCES.filter(source => source.category === category)
-      : NEWS_SOURCES;
+    // Filter sources based on category and phillyOnly flag
+    let filteredSources = NEWS_SOURCES;
+    
+    if (category) {
+      filteredSources = filteredSources.filter(source => source.category === category);
+    }
+    
+    if (phillyOnly) {
+      filteredSources = filteredSources.filter(source => source.isPhillyNews);
+    }
 
     const fetchWithTimeout = async (url: string, sourceName: string) => {
       const controller = new AbortController();
@@ -216,7 +224,7 @@ export async function GET(request: Request) {
       }
     };
 
-    const feedPromises = sources.map(async source => {
+    const feedPromises = filteredSources.map(async source => {
       try {
         const feed = await fetchWithTimeout(source.url, source.name);
         if (!feed?.items) return [];
@@ -236,7 +244,8 @@ export async function GET(request: Request) {
                 sourceIcon: source.icon,
                 category: source.category,
                 author: getAuthor(item),
-                imageUrl: extractImageUrl(item)
+                imageUrl: extractImageUrl(item),
+                isPhillyNews: source.isPhillyNews
               };
             } catch (itemError) {
               console.warn(`Error processing item from ${source.name}:`, 
@@ -299,7 +308,8 @@ export async function GET(request: Request) {
           source: 'Philly Social',
           category: 'general',
           author: 'Philly Social Team',
-          imageUrl: 'https://images.unsplash.com/photo-1569761316261-9a8696fa2ca3?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1050&q=80'
+          imageUrl: 'https://images.unsplash.com/photo-1569761316261-9a8696fa2ca3?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1050&q=80',
+          isPhillyNews: true
         },
         {
           id: 'fallback-2',
@@ -310,7 +320,8 @@ export async function GET(request: Request) {
           source: 'Philly Social',
           category: 'lifestyle',
           author: 'Philly Social Team',
-          imageUrl: 'https://images.unsplash.com/photo-1601751818941-571144562ff8?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1050&q=80'
+          imageUrl: 'https://images.unsplash.com/photo-1601751818941-571144562ff8?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1050&q=80',
+          isPhillyNews: true
         },
         {
           id: 'fallback-3',
@@ -321,7 +332,8 @@ export async function GET(request: Request) {
           source: 'Philly Social',
           category: 'events',
           author: 'Philly Social Team',
-          imageUrl: 'https://images.unsplash.com/photo-1575916242639-ec79b6a206ff?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1050&q=80'
+          imageUrl: 'https://images.unsplash.com/photo-1575916242639-ec79b6a206ff?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1050&q=80',
+          isPhillyNews: true
         }
       ];
       

@@ -1,24 +1,59 @@
 'use client';
-import { useState } from 'react';
-import { FaLock, FaHashtag, FaKey, FaCopy, FaUserPlus, FaUserShield, FaCog } from 'react-icons/fa';
+import { useState, useRef, useEffect } from 'react';
+import { FaLock, FaHashtag, FaKey, FaCopy, FaUserPlus, FaUserShield, FaCog, FaVolumeMute, FaEllipsisV, FaEdit, FaUserFriends, FaTrash } from 'react-icons/fa';
 import Image from 'next/image';
 import { Channel } from '@/types/Channel';
 import { useAuth } from '@/lib/context/AuthContext';
 import { useToast } from '../../layouts/Toast';
+import EditChannelModal from '../../models/EditChannelModal';
 
 interface ChannelHeaderProps {
   channel: Channel | null;
+  onShowMembers?: () => void;
+  onUpdate?: (updatedChannel: Channel) => void;
+  onShowManagement?: () => void;
 }
 
-const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel }) => {
+const ChannelHeader: React.FC<ChannelHeaderProps> = ({ 
+  channel, 
+  onShowMembers,
+  onUpdate,
+  onShowManagement
+}) => {
   const [showInviteCode, setShowInviteCode] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const { user } = useAuth();
   const { showToast } = useToast();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   if (!channel) return null;
 
-  const isUserAdmin = channel.admins?.includes(user?.uid || '');
+  // Function to check if the current user is an admin
+  const isUserAdmin = () => {
+    if (!user) return false;
+    return channel.admins?.includes(user.uid) || false;
+  };
+  
+  const isUserMuted = channel.mutedUsers?.includes(user?.uid || '');
+
+  const handleChannelUpdate = (updatedChannel: Channel) => {
+    if (onUpdate) {
+      onUpdate(updatedChannel);
+    }
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-md p-4 mb-4">
@@ -46,31 +81,108 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel }) => {
               {!channel.isPublic && (
                 <FaLock className="ml-2 text-gray-500" size={14} />
               )}
+              {isUserMuted && (
+                <div className="ml-2 flex items-center text-yellow-500" title="You are muted in this channel">
+                  <FaVolumeMute size={14} />
+                </div>
+              )}
             </h2>
             <p className="text-sm text-gray-600 truncate max-w-md">
               {channel.description || 'No description provided'}
             </p>
+            {isUserMuted && (
+              <p className="text-xs text-yellow-600 mt-1">
+                You are muted in this channel. You can view messages but cannot post.
+              </p>
+            )}
           </div>
         </div>
         
-        {isUserAdmin && (
-          <div className="flex space-x-2">
+        <div className="flex items-center">
+          {isUserAdmin() && onShowManagement && (
             <button
-              onClick={() => setShowAdminPanel(!showAdminPanel)}
-              className="p-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
-              title="Channel settings"
-              aria-label="Channel settings"
+              onClick={onShowManagement}
+              className="mr-2 p-2 bg-[#046A38] text-white rounded-full hover:bg-[#035C2F] transition-colors"
+              title="Channel Management"
+              aria-label="Channel Management"
             >
               <FaCog size={16} />
             </button>
+          )}
+          
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setShowDropdown(!showDropdown)}
+              className="p-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
+              title="Channel options"
+              aria-label="Channel options"
+            >
+              <FaEllipsisV size={16} />
+            </button>
+            
+            {showDropdown && (
+              <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 py-1 border border-gray-200">
+                <button
+                  onClick={() => {
+                    onShowMembers && onShowMembers();
+                    setShowDropdown(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                >
+                  <FaUserFriends className="mr-2" size={14} />
+                  {isUserAdmin() ? 'Manage Members' : 'View Members'}
+                </button>
+                
+                {isUserAdmin() && onShowManagement && (
+                  <button
+                    onClick={() => {
+                      onShowManagement();
+                      setShowDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                  >
+                    <FaCog className="mr-2" size={14} />
+                    Channel Management
+                  </button>
+                )}
+                
+                {isUserAdmin() && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setShowEditModal(true);
+                        setShowDropdown(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                    >
+                      <FaEdit className="mr-2" size={14} />
+                      Edit Channel
+                    </button>
+                    
+                    {!channel.isPublic && (
+                      <button
+                        onClick={() => {
+                          setShowInviteCode(!showInviteCode);
+                          setShowDropdown(false);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                      >
+                        <FaKey className="mr-2" size={14} />
+                        {showInviteCode ? 'Hide Invite Code' : 'Show Invite Code'}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
       
       {/* Invite code section for private channels */}
-      {!channel.isPublic && (
+      {!channel.isPublic && showInviteCode && (
         <div className="mt-4">
-          {isUserAdmin && (
+          {isUserAdmin() && (
             <div className="p-3 bg-gray-50 rounded-md border border-gray-200">
               <div className="flex justify-between items-center">
                 <div className="flex items-center text-sm font-medium text-gray-700">
@@ -124,25 +236,13 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({ channel }) => {
         </div>
       )}
       
-      {/* Admin panel */}
-      {isUserAdmin && showAdminPanel && (
-        <div className="mt-4 p-3 bg-gray-50 rounded-md border border-gray-200">
-          <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-            <FaUserShield className="mr-2 text-[#004C54]" size={14} />
-            Admin Controls
-          </h3>
-          
-          <div className="grid grid-cols-2 gap-2">
-            <button className="flex items-center justify-center p-2 bg-white border border-gray-200 rounded-md text-sm hover:bg-gray-50">
-              <FaUserPlus className="mr-2" size={14} />
-              Invite Members
-            </button>
-            <button className="flex items-center justify-center p-2 bg-white border border-gray-200 rounded-md text-sm hover:bg-gray-50">
-              <FaUserShield className="mr-2" size={14} />
-              Manage Admins
-            </button>
-          </div>
-        </div>
+      {/* Edit Channel Modal */}
+      {showEditModal && (
+        <EditChannelModal
+          channel={channel}
+          onClose={() => setShowEditModal(false)}
+          onUpdate={handleChannelUpdate}
+        />
       )}
     </div>
   );

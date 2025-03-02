@@ -54,8 +54,17 @@ const ChannelList: React.FC<ChannelListProps> = ({ onSelectChannel, selectedChan
             isPublic: data.isPublic !== undefined ? data.isPublic : true,
             imageUrl: data.imageUrl,
             invitedUsers: data.invitedUsers || [],
-            inviteCode: data.inviteCode
+            inviteCode: data.inviteCode,
+            bannedUsers: data.bannedUsers || [],
+            mutedUsers: data.mutedUsers || [],
+            deleted: data.deleted
           };
+          
+          // Skip deleted channels
+          if (channel.deleted) return;
+          
+          // Skip channels where the user is banned
+          if (channel.bannedUsers?.includes(user.uid)) return;
           
           // Only include channels that:
           // 1. Are public, OR
