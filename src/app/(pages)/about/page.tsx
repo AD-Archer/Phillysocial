@@ -140,22 +140,22 @@ export default function About() {
   // Timeline milestones
   const timeline = [
     {
-      year: "2025",
-      title: "The Idea",
-      description: "Philly Social was conceived as a solution to connect Philadelphia's diverse neighborhoods and communities in a digital space."
+      year: "2024",
+      title: "The Inspiration Begins",
+      description: "The journey started with 'Everything Southwest Philly', a social app for Southwest Philadelphia proposed by Antonio Archer, Mohamed Souare, and Jaylen Nixon."
     },
     {
       year: "2025",
-      title: "Launch",
-      description: "Our platform launched with core features focused on community discussions, local business support, and neighborhood initiatives."
+      title: "Nexus Social",
+      description: "Bryan Gunawan developed Nexus Social, further inspiring our vision for a city-wide community platform."
     },
     {
       year: "2025",
-      title: "Community Growth",
-      description: "Expanded to include more neighborhoods and partnered with local organizations to increase our impact across Philadelphia."
+      title: "Codefest Creation",
+      description: "Philly Social was built in just 30 hours during a Philadelphia codefest at Drexel University, bringing together our team's vision for a city-wide community platform."
     },
     {
-      year: "2026",
+      year: "2025",
       title: "Future Vision",
       description: "Planning to introduce new features for neighborhood-specific resources, emergency communications, and expanded community organizing tools."
     }
@@ -184,9 +184,15 @@ export default function About() {
                 Our mission is to strengthen Philadelphia&apos;s communities by creating digital connections that lead to real-world impact. 
                 We believe that when neighbors can easily connect, share resources, and organize around common goals, our entire city benefits.
               </p>
-              <p className="text-xl leading-8 text-white">
+              <p className="text-xl leading-8 text-white mb-6">
                 Whether it&apos;s neighborhood improvements, cultural events, supporting local businesses, or city-wide initiatives, 
                 we&apos;re providing a space where the Philly community can come together—anytime, anywhere—to make our city even better.
+              </p>
+              <p className="text-xl leading-8 text-white">
+                This project was created in just 30 hours during a Philadelphia codefest at Drexel University in 2025, inspired by &quot;Everything Southwest Philly&quot; 
+                (a social app for Southwest Philadelphia proposed by Antonio Archer, Mohamed Souare, and Jaylen Nixon in 2024) and 
+                <a href="https://nexus-social-zeta.vercel.app/dashboard" target="_blank" rel="noopener noreferrer" className="text-[#A5ACAF] hover:text-white underline"> Nexus Social</a> 
+                (developed by Bryan Gunawan in 2024-2025).
               </p>
             </div>
             <div className="mt-12 flex flex-wrap items-center justify-center gap-4">
@@ -314,7 +320,7 @@ export default function About() {
             transition={{ duration: 0.5 }}
           >
             <h2 className="text-3xl eagles-font text-center text-white mb-12 drop-shadow-lg">
-              Our Growing Impact
+              Our Growth Targets
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
               {impactStats.map((stat, index) => {

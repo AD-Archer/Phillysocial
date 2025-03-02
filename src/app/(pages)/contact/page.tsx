@@ -296,9 +296,8 @@ export default function Contact() {
             transition={{ duration: 0.5 }}
           >
             <h2 className="text-3xl eagles-font text-center text-white mb-12 drop-shadow-lg">
-              Our Growing Impact
+              Our Target Impact
             </h2>
-            <p>Our planned growing impact this is not current</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
               {impactStats.map((stat, index) => {
                 const Icon = stat.icon;
