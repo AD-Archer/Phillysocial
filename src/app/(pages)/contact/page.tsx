@@ -1,98 +1,99 @@
 'use client';
 import MainLayout from '@/layouts/MainLayout';
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FaEnvelope, FaGithub, FaLinkedin, FaMapMarkerAlt, FaPhone, FaPaperPlane } from 'react-icons/fa';
+import { FaEnvelope, FaGithub, FaMapMarkerAlt, FaPhone, FaUsers, FaHandsHelping, FaStore, FaCalendarAlt } from 'react-icons/fa';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export default function Contact() {
-  // Form state
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    subject: '',
-    message: ''
-  });
-  const [formStatus, setFormStatus] = useState({ submitted: false, error: false });
-
-  // Animation variants
-  const fadeInUp = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { 
-      opacity: 1, 
-      y: 0,
-      transition: {
-        duration: 0.6
+  // Add Eagles font and breathing gradient
+  useEffect(() => {
+    // Add the Eagles font to the document
+    const style = document.createElement('style');
+    style.textContent = `
+      @font-face {
+        font-family: 'NFLEagles';
+        src: url('/font/NFLEAGLE.TTF') format('truetype');
+        font-weight: normal;
+        font-style: normal;
       }
-    }
-  };
-
-  const staggerContainer = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.2
+      
+      .eagles-font {
+        font-family: 'NFLEagles', sans-serif;
       }
-    }
-  };
+      
+      .breathing-gradient {
+        background-size: 400% 400%;
+        animation: gradient 15s ease infinite;
+      }
+      
+      @keyframes gradient {
+        0% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+        100% {
+          background-position: 0% 50%;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
-  // Team members data
+  // Team members data with updated images
   const teamMembers = [
     {
-      name: "Bryan Gunawan",
-      role: "Co-Founder, Overseeing Developer",
-      email: "bguna0050@launchpadphilly.org",
-      image: "/Logo.png",
-      github: "https://github.com/bryangunawan",
-      linkedin: "https://linkedin.com/in/bryangunawan",
-    },
-    {
-      name: "Sianni Strickland",
-      role: "Co-Founder, Managing Lead",
+      name: "Mohomed Souare",
+      role: "Co-Founder, and Key Developer",
+      bio: "Mohamed brings technical expertise and a passion for creating digital tools that solve real community problems.",
+      image: "https://2ad5tl9u0f.ufs.sh/f/mVlrptEB35zZWRSjr6oGkhZc0HqtLiKVx6UwNY9rFfzj8DgC",
       email: "placeholder@email.com",
-      image: "/Logo.png",
-      github: "https://github.com/siannistrickland",
-      linkedin: "https://www.linkedin.com/in/sianni-strickland-934059284/",
+      github: "https://github.com/MO-fr",
+      linkedin: "https://www.linkedin.com/in/mohamed-souare-8a61a2259/",
     },
     {
       name: "Antonio Archer",
-      role: "Co-Founder, Lead Developer",
-      email: "placeholder@email.com",
-      image: "/Logo.png",
+      role: "Co-Founder, and Lead Developer",
+      bio: "Antonio leads our development team with a focus on creating intuitive, accessible interfaces that connect Philadelphians.",
+      image: "https://2ad5tl9u0f.ufs.sh/f/mVlrptEB35zZgXkiO09rgqXvswhp7V9inAWSNjdFcTPU04Co",
+      email: "adarcher21@gmail.com",
       github: "https://github.com/ad-archer",
       linkedin: "https://www.linkedin.com/in/antonio-archer/",
     },
     {
-      name: "Mohamed Souare",
-      role: "Co-Founder, Key Developer",
+      name: "Sianni Strickland",
+      role: "Co-Founder, and Managing Lead",
+      bio: "Sianni oversees operations and community engagement, ensuring Philly Social remains focused on serving the needs of our city.",
+      image: "https://2ad5tl9u0f.ufs.sh/f/mVlrptEB35zZRu9boXVrI1y2gHJMVozdtwNDuO6Ev3qPksnc",
       email: "placeholder@email.com",
-      image: "/Logo.png",
-      github: "https://github.com/MO-fr",
-      linkedin: "https://www.linkedin.com/in/mohamed-souare-8a61a2259/",
+      github: "https://github.com/SunnySianni",
+      linkedin: "https://www.linkedin.com/in/sianni-strickland-934059284//",
+    },
+    {
+      name: "Bryan Gunawan",
+      role: "Co-Founder, and Overseeing Developer",
+      bio: "Bryan provides strategic direction and technical oversight, with a vision of using technology to strengthen Philadelphia's communities.",
+      image: "https://2ad5tl9u0f.ufs.sh/f/mVlrptEB35zZjuXP5PB6AkuVRtqlLTQdpOHJ5GXICY9z3M2n",
+      email: "bguna0050@launchpadphilly.org",
+      github: "https://github.com/ManINeedToSleep",
+      linkedin: "https://www.linkedin.com/in/bryan-gunawan-a537132b9/",
     }
   ];
 
-  // Handle form input changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    // In a real application, you would send the form data to a server here
-    console.log('Form submitted:', formData);
-    // Simulate successful submission
-    setFormStatus({ submitted: true, error: false });
-    // Reset form
-    setFormData({ name: '', email: '', subject: '', message: '' });
-    // Reset status after 5 seconds
-    setTimeout(() => {
-      setFormStatus({ submitted: false, error: false });
-    }, 5000);
-  };
+  // Impact statistics
+  const impactStats = [
+    { number: "1000+", label: "Community Members", icon: FaUsers },
+    { number: "50+", label: "Local Businesses", icon: FaStore },
+    { number: "25+", label: "Community Initiatives", icon: FaHandsHelping },
+    { number: "100+", label: "Neighborhood Events", icon: FaCalendarAlt }
+  ];
 
   return (
     <MainLayout>
@@ -108,9 +109,15 @@ export default function Contact() {
             <h1 className="text-5xl eagles-font tracking-tight text-white sm:text-6xl mb-6 drop-shadow-lg">
               Contact <span className="text-[#A5ACAF]">Us</span>
             </h1>
-            <p className="text-xl leading-8 text-white mb-8 max-w-3xl mx-auto">
-              Have questions, suggestions, or want to get involved? Reach out to our team and we&apos;ll get back to you as soon as possible.
-            </p>
+            <div className="bg-black/20 backdrop-blur-sm rounded-2xl p-8 shadow-xl max-w-4xl mx-auto">
+              <p className="text-xl leading-8 text-white mb-6">
+                Have questions, suggestions, or want to get involved? Reach out to our team and we&apos;ll get back to you as soon as possible.
+              </p>
+              <p className="text-xl leading-8 text-white">
+                Whether you&apos;re interested in joining our community, partnering with us, or just want to learn more about Philly Social, 
+                we&apos;re here to help connect you with the resources and information you need.
+              </p>
+            </div>
           </motion.div>
         </section>
 
@@ -125,30 +132,36 @@ export default function Contact() {
           >
             Meet Our Team
           </motion.h2>
-          <motion.div 
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-          >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {teamMembers.map((member, index) => (
-              <motion.div 
+              <motion.div
                 key={index}
-                className="bg-black/30 backdrop-blur-md rounded-xl p-6 flex flex-col items-center text-center"
-                variants={fadeInUp}
-                whileHover={{ y: -10 }}
+                className="group bg-black/30 backdrop-blur-md rounded-xl p-8 flex flex-col items-center text-center transform transition-all duration-300 hover:scale-105 hover:bg-black/40"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
               >
-                <div className="relative w-32 h-32 mb-6 rounded-full overflow-hidden border-4 border-[#A5ACAF]">
-                  <Image
-                    src={member.image}
-                    alt={member.name}
-                    fill
-                    className="object-cover"
-                  />
+                <div className="relative w-48 h-48 mb-6 rounded-full overflow-hidden border-4 border-[#A5ACAF] shadow-xl group-hover:border-white transition-colors duration-300">
+                  {member.image && member.image.startsWith('http') ? (
+                    <Image 
+                      src={member.image} 
+                      alt={member.name} 
+                      fill
+                      className="object-cover" 
+                    />
+                  ) : (
+                    <Image 
+                      src={member.image || "/placeholder.svg"} 
+                      alt={member.name} 
+                      fill 
+                      className="object-cover" 
+                    />
+                  )}
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">{member.name}</h3>
-                <p className="text-[#A5ACAF] mb-4">{member.role}</p>
+                <h3 className="text-2xl font-bold text-white mb-2">{member.name}</h3>
+                <p className="text-[#A5ACAF] text-lg mb-4">{member.role}</p>
+                <p className="text-white mb-6">{member.bio}</p>
                 <div className="flex flex-col space-y-2 items-center mb-4">
                   <a 
                     href={`mailto:${member.email}`} 
@@ -157,30 +170,30 @@ export default function Contact() {
                     <FaEnvelope className="mr-2" /> {member.email}
                   </a>
                 </div>
-                <div className="flex space-x-4">
+                <div className="flex space-x-6">
                   <a 
                     href={member.github} 
                     target="_blank" 
                     rel="noopener noreferrer" 
-                    className="text-[#A5ACAF] hover:text-white transition-colors p-2"
+                    className="text-[#A5ACAF] hover:text-white transition-colors duration-300 font-medium"
                   >
-                    <FaGithub size={24} />
+                    GitHub
                   </a>
                   <a 
                     href={member.linkedin} 
                     target="_blank" 
                     rel="noopener noreferrer" 
-                    className="text-[#A5ACAF] hover:text-white transition-colors p-2"
+                    className="text-[#A5ACAF] hover:text-white transition-colors duration-300 font-medium"
                   >
-                    <FaLinkedin size={24} />
+                    LinkedIn
                   </a>
                 </div>
               </motion.div>
             ))}
-          </motion.div>
+          </div>
         </section>
 
-        {/* Contact Form Section */}
+        {/* Contact Information Section */}
         <section className="px-4 py-16 sm:px-6 lg:px-8 max-w-7xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             <motion.div
@@ -188,87 +201,8 @@ export default function Contact() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className="bg-black/30 backdrop-blur-md rounded-xl p-8 shadow-xl"
             >
-              <h2 className="text-3xl eagles-font text-white mb-8 drop-shadow-lg">Send Us a Message</h2>
-              {formStatus.submitted ? (
-                <div className="bg-green-500/20 border border-green-500 rounded-lg p-4 mb-6">
-                  <p className="text-white">Thank you for your message! We&apos;ll get back to you soon.</p>
-                </div>
-              ) : formStatus.error ? (
-                <div className="bg-red-500/20 border border-red-500 rounded-lg p-4 mb-6">
-                  <p className="text-white">There was an error sending your message. Please try again.</p>
-                </div>
-              ) : null}
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div>
-                  <label htmlFor="name" className="block text-[#A5ACAF] mb-2">Your Name</label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 rounded-lg bg-black/30 text-white border border-[#A5ACAF]/30 focus:border-[#A5ACAF] focus:outline-none focus:ring-2 focus:ring-[#A5ACAF]/50"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="email" className="block text-[#A5ACAF] mb-2">Your Email</label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 rounded-lg bg-black/30 text-white border border-[#A5ACAF]/30 focus:border-[#A5ACAF] focus:outline-none focus:ring-2 focus:ring-[#A5ACAF]/50"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="subject" className="block text-[#A5ACAF] mb-2">Subject</label>
-                  <input
-                    type="text"
-                    id="subject"
-                    name="subject"
-                    value={formData.subject}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 rounded-lg bg-black/30 text-white border border-[#A5ACAF]/30 focus:border-[#A5ACAF] focus:outline-none focus:ring-2 focus:ring-[#A5ACAF]/50"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="message" className="block text-[#A5ACAF] mb-2">Your Message</label>
-                  <textarea
-                    id="message"
-                    name="message"
-                    value={formData.message}
-                    onChange={handleChange}
-                    required
-                    rows={6}
-                    className="w-full px-4 py-3 rounded-lg bg-black/30 text-white border border-[#A5ACAF]/30 focus:border-[#A5ACAF] focus:outline-none focus:ring-2 focus:ring-[#A5ACAF]/50"
-                  ></textarea>
-                </div>
-                <motion.button
-                  type="submit"
-                  className="rounded-xl bg-[#A5ACAF] px-8 py-4 text-lg font-semibold text-[#003038] shadow-lg hover:bg-white hover:text-[#004C54] transition-all duration-300 focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#004C54] w-full"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <span className="flex items-center justify-center">
-                    Send Message <FaPaperPlane className="ml-2" />
-                  </span>
-                </motion.button>
-              </form>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-            >
-              <div className="bg-black/30 backdrop-blur-md rounded-xl p-8 shadow-xl mb-8">
+              <div className="bg-black/30 backdrop-blur-md rounded-xl p-8 shadow-xl h-full">
                 <h2 className="text-3xl eagles-font text-white mb-8 drop-shadow-lg">Visit Our Office</h2>
                 <div className="space-y-6">
                   <div className="flex items-start">
@@ -278,7 +212,7 @@ export default function Contact() {
                     <div>
                       <h3 className="text-xl font-bold text-white mb-2">Address</h3>
                       <p className="text-[#A5ACAF]">
-                        1500 Market Street<br />
+                        801 Market Street<br />
                         Philadelphia, PA 19102
                       </p>
                     </div>
@@ -289,7 +223,7 @@ export default function Contact() {
                     </div>
                     <div>
                       <h3 className="text-xl font-bold text-white mb-2">Phone</h3>
-                      <p className="text-[#A5ACAF]">(215) 555-0123</p>
+                      <p className="text-[#A5ACAF]">(267) 225-6778</p>
                     </div>
                   </div>
                   <div className="flex items-start">
@@ -298,13 +232,20 @@ export default function Contact() {
                     </div>
                     <div>
                       <h3 className="text-xl font-bold text-white mb-2">Email</h3>
-                      <p className="text-[#A5ACAF]">contact@phillysocial.org</p>
+                      <p className="text-[#A5ACAF]">aarch0004@launchpadphilly.org</p>
                     </div>
                   </div>
                 </div>
               </div>
-              
-              <div className="bg-black/30 backdrop-blur-md rounded-xl p-8 shadow-xl">
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+            >
+              <div className="bg-black/30 backdrop-blur-md rounded-xl p-8 shadow-xl mb-8">
                 <h2 className="text-3xl eagles-font text-white mb-8 drop-shadow-lg">Office Hours</h2>
                 <div className="space-y-4">
                   <div className="flex justify-between">
@@ -321,8 +262,63 @@ export default function Contact() {
                   </div>
                 </div>
               </div>
+              
+              <div className="bg-black/30 backdrop-blur-md rounded-xl p-8 shadow-xl">
+                <h2 className="text-3xl eagles-font text-white mb-8 drop-shadow-lg">Connect With Us</h2>
+                <p className="text-[#A5ACAF] text-lg mb-6">
+                  Check out our GitHub repository to see our code, contribute to the project, or report issues.
+                </p>
+                <div className="flex justify-center">
+                  <a 
+                    href="https://github.com/ad-archer/phillysocial" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-3 bg-[#003940] hover:bg-[#004C54] text-white px-6 py-4 rounded-xl transition-all duration-300 text-lg font-medium"
+                  >
+                    <FaGithub size={24} />
+                    Visit Our GitHub Repository
+                  </a>
+                </div>
+              </div>
             </motion.div>
           </div>
+        </section>
+
+        {/* Impact Stats Section */}
+        <section className="px-4 py-20 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+          <motion.div 
+            className="bg-black/20 backdrop-blur-sm rounded-2xl p-8 shadow-xl"
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
+            <h2 className="text-3xl eagles-font text-center text-white mb-12 drop-shadow-lg">
+              Our Growing Impact
+            </h2>
+            <p>Our planned growing impact this is not current</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              {impactStats.map((stat, index) => {
+                const Icon = stat.icon;
+                return (
+                  <motion.div 
+                    key={index}
+                    className="text-center"
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <div className="bg-[#004C54] rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 shadow-lg">
+                      <Icon size={32} className="text-[#A5ACAF]" />
+                    </div>
+                    <h3 className="text-4xl font-bold text-white mb-2">{stat.number}</h3>
+                    <p className="text-[#A5ACAF]">{stat.label}</p>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
         </section>
 
         {/* FAQ Section */}
@@ -362,6 +358,42 @@ export default function Contact() {
                   Visit our &quot;Initiatives&quot; page to see current community projects and events. You can sign up to volunteer or participate directly through the platform.
                 </p>
               </div>
+            </div>
+          </motion.div>
+        </section>
+
+        {/* Call-to-Action Section */}
+        <section className="px-4 py-20 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+          <motion.div 
+            className="bg-black/20 backdrop-blur-sm rounded-2xl p-8 shadow-xl max-w-3xl mx-auto text-center"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7 }}
+          >
+            <h2 className="text-4xl eagles-font text-white mb-6 drop-shadow-lg">
+              Join the Philly Social Community
+            </h2>
+            <p className="text-xl leading-8 text-[#A5ACAF] mb-8">
+              Be part of a movement to strengthen Philadelphia&apos;s communities through digital connection and real-world action.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-x-6">
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Link
+                  href="/signup"
+                  className="rounded-xl bg-[#A5ACAF] px-8 py-4 text-lg font-semibold text-[#003038] shadow-lg hover:bg-white hover:text-[#004C54] transition-all duration-300 focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#004C54]"
+                >
+                  Create Account
+                </Link>
+              </motion.div>
+              <motion.div whileHover={{ x: 5 }}>
+                <Link
+                  href="/about"
+                  className="text-lg font-semibold leading-6 text-[#A5ACAF] hover:text-white transition-colors duration-300 flex items-center gap-2"
+                >
+                  Learn More About Us <span aria-hidden="true">→</span>
+                </Link>
+              </motion.div>
             </div>
           </motion.div>
         </section>
