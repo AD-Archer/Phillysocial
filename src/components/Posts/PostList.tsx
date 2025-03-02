@@ -120,12 +120,123 @@ const PostList: React.FC<PostListProps> = ({ channelId }) => {
               createdAt: data.createdAt?.toDate() || new Date(),
               lastEdited: data.lastEdited?.toDate() || null,
               likes: data.likes || [],
-              comments: (data.comments || []).map((comment: Comment) => ({
-                ...comment,
-                createdAt: comment.createdAt && 'toDate' in comment.createdAt 
-                  ? (comment.createdAt as { toDate(): Date }).toDate() 
-                  : new Date()
-              })),
+              comments: (data.comments || []).map((comment: Comment) => {
+                // Handle different date formats for comment createdAt
+                let commentDate: Date;
+                
+                if (comment.createdAt) {
+                  if (typeof comment.createdAt === 'object' && comment.createdAt !== null) {
+                    // Check if it's a Firestore Timestamp
+                    if ('toDate' in comment.createdAt && typeof comment.createdAt.toDate === 'function') {
+                      commentDate = comment.createdAt.toDate();
+                    } 
+                    // Check if it's already a Date object
+                    else if (comment.createdAt instanceof Date) {
+                      commentDate = comment.createdAt;
+                    }
+                    // Default to current date if it's an unrecognized object
+                    else {
+                      commentDate = new Date();
+                    }
+                  } 
+                  // Handle string date format (ISO)
+                  else if (typeof comment.createdAt === 'string') {
+                    commentDate = new Date(comment.createdAt);
+                  }
+                  // Default to current date for any other type
+                  else {
+                    commentDate = new Date();
+                  }
+                } else {
+                  commentDate = new Date();
+                }
+                
+                // Process nested replies if they exist
+                let replies = comment.replies;
+                if (replies && Array.isArray(replies)) {
+                  replies = replies.map(reply => {
+                    let replyDate: Date;
+                    let lastEditedDate: Date | null = null;
+                    
+                    if (reply.createdAt) {
+                      if (typeof reply.createdAt === 'object' && reply.createdAt !== null) {
+                        // Check if it's a Firestore Timestamp
+                        if ('toDate' in reply.createdAt && typeof reply.createdAt.toDate === 'function') {
+                          replyDate = reply.createdAt.toDate();
+                        } 
+                        // Check if it's already a Date object
+                        else if (reply.createdAt instanceof Date) {
+                          replyDate = reply.createdAt;
+                        }
+                        // Default to current date if it's an unrecognized object
+                        else {
+                          replyDate = new Date();
+                        }
+                      } 
+                      // Handle string date format (ISO)
+                      else if (typeof reply.createdAt === 'string') {
+                        replyDate = new Date(reply.createdAt);
+                      }
+                      // Default to current date for any other type
+                      else {
+                        replyDate = new Date();
+                      }
+                    } else {
+                      replyDate = new Date();
+                    }
+                    
+                    // Handle lastEdited date if it exists
+                    if (reply.lastEdited) {
+                      if (typeof reply.lastEdited === 'object' && reply.lastEdited !== null) {
+                        // Check if it's a Firestore Timestamp
+                        if ('toDate' in reply.lastEdited && typeof reply.lastEdited.toDate === 'function') {
+                          lastEditedDate = reply.lastEdited.toDate();
+                        } 
+                        // Check if it's already a Date object
+                        else if (reply.lastEdited instanceof Date) {
+                          lastEditedDate = reply.lastEdited;
+                        }
+                      } 
+                      // Handle string date format (ISO)
+                      else if (typeof reply.lastEdited === 'string') {
+                        lastEditedDate = new Date(reply.lastEdited);
+                      }
+                    }
+                    
+                    return {
+                      ...reply,
+                      createdAt: replyDate,
+                      lastEdited: lastEditedDate
+                    };
+                  });
+                }
+                
+                // Handle lastEdited date for the comment
+                let lastEditedDate: Date | null = null;
+                if (comment.lastEdited) {
+                  if (typeof comment.lastEdited === 'object' && comment.lastEdited !== null) {
+                    // Check if it's a Firestore Timestamp
+                    if ('toDate' in comment.lastEdited && typeof comment.lastEdited.toDate === 'function') {
+                      lastEditedDate = comment.lastEdited.toDate();
+                    } 
+                    // Check if it's already a Date object
+                    else if (comment.lastEdited instanceof Date) {
+                      lastEditedDate = comment.lastEdited;
+                    }
+                  } 
+                  // Handle string date format (ISO)
+                  else if (typeof comment.lastEdited === 'string') {
+                    lastEditedDate = new Date(comment.lastEdited);
+                  }
+                }
+                
+                return {
+                  ...comment,
+                  createdAt: commentDate,
+                  lastEdited: lastEditedDate,
+                  replies: replies
+                };
+              }),
               imageUrl: data.imageUrl,
           });
         });

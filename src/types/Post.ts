@@ -20,6 +20,7 @@ export interface Comment {
   authorName: string;
   authorPhotoURL?: string;
   createdAt: Date;
+  lastEdited?: Date | null; // Allow null for lastEdited
   parentId?: string; // ID of the parent comment (if this is a reply)
   replies?: Comment[]; // Array of reply comments
   isDeleted?: boolean; // Flag to indicate if the comment has been deleted

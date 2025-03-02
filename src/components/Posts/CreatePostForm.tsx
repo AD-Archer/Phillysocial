@@ -30,6 +30,7 @@ interface PostData {
   comments: Comment[];
   authorPhotoURL?: string;
   imageUrl?: string;
+  isDeleted?: boolean;
 }
 
 const CreatePostForm: React.FC<CreatePostFormProps> = ({ channelId, onPostCreated }) => {
@@ -79,6 +80,7 @@ const CreatePostForm: React.FC<CreatePostFormProps> = ({ channelId, onPostCreate
         createdAt: serverTimestamp(),
         likes: [],
         comments: [] as Comment[],
+        isDeleted: false,
       };
 
       if (photoURL) {
