@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import { FaHeart, FaRegHeart, FaComment, FaEllipsisH, FaTrash, FaEdit } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaComment, FaEllipsisH, FaTrash, FaEdit, FaReply } from 'react-icons/fa';
 import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
@@ -47,10 +47,11 @@ interface CommentItemProps {
   comment: Comment;
   postId: string;
   onReplyAdded: (parentCommentId: string, newReply: Comment) => void;
+  onCommentDeleted: (commentId: string) => void;
   level?: number;
 }
 
-const CommentItem: React.FC<CommentItemProps> = ({ comment, postId, onReplyAdded, level = 0 }) => {
+const CommentItem: React.FC<CommentItemProps> = ({ comment, postId, onReplyAdded, onCommentDeleted, level = 0 }) => {
   const [authorInfo, setAuthorInfo] = useState({
     name: comment.authorName,
     photoURL: comment.authorPhotoURL || undefined
@@ -59,11 +60,31 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, postId, onReplyAdded
   const [replyText, setReplyText] = useState('');
   const [isSubmittingReply, setIsSubmittingReply] = useState(false);
   const [showReplies, setShowReplies] = useState(true);
+  const [showOptions, setShowOptions] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const optionsRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   
   // Maximum nesting level to prevent excessive indentation
   const MAX_NESTING_LEVEL = 3;
   const currentLevel = Math.min(level, MAX_NESTING_LEVEL);
+
+  // Check if the current user can delete this comment
+  const canDeleteComment = user && (user.uid === comment.authorId);
+
+  // Handle clicks outside the options menu to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (optionsRef.current && !optionsRef.current.contains(event.target as Node)) {
+        setShowOptions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Fetch the latest author information from Firestore
   useEffect(() => {
@@ -132,11 +153,70 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, postId, onReplyAdded
     }
   };
 
+  const handleDeleteComment = async () => {
+    if (!user) return;
+    
+    if (!window.confirm('Are you sure you want to delete this comment? This action cannot be undone.')) {
+      return;
+    }
+    
+    setIsDeleting(true);
+    setShowOptions(false);
+    
+    try {
+      // Create a deep copy of the current comments array
+      const postRef = doc(db, 'posts', postId);
+      const postDoc = await getDoc(postRef);
+      
+      if (postDoc.exists()) {
+        const postData = postDoc.data();
+        const updatedComments = JSON.parse(JSON.stringify(postData.comments)) as Comment[];
+        
+        // Helper function to recursively find and mark the comment as deleted
+        const markCommentAsDeleted = (comments: Comment[], commentId: string): boolean => {
+          for (let i = 0; i < comments.length; i++) {
+            const currentComment = comments[i];
+            
+            if (currentComment.id === commentId) {
+              // Mark the comment as deleted but keep its structure
+              currentComment.content = "[This comment has been deleted]";
+              currentComment.isDeleted = true;
+              return true;
+            }
+            
+            // Check nested replies if they exist
+            if (currentComment.replies && currentComment.replies.length > 0) {
+              const found = markCommentAsDeleted(currentComment.replies, commentId);
+              if (found) return true;
+            }
+          }
+          return false;
+        };
+        
+        // Mark the comment as deleted
+        markCommentAsDeleted(updatedComments, comment.id);
+        
+        // Update Firestore with the modified comments
+        await updateDoc(postRef, {
+          comments: updatedComments
+        });
+        
+        // Notify parent component about deletion
+        onCommentDeleted(comment.id);
+      }
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      alert('Failed to delete comment. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Calculate left margin based on nesting level
   const marginLeft = currentLevel > 0 ? `${currentLevel * 16}px` : '0';
   
   return (
-    <div style={{ marginLeft }}>
+    <div style={{ marginLeft }} className={`${isDeleting ? 'opacity-60 pointer-events-none' : ''}`}>
       <div className="flex space-x-2">
         <UserAvatar
           userId={comment.authorId}
@@ -147,23 +227,58 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, postId, onReplyAdded
         />
         <div className="flex-1 bg-gray-100 rounded-lg p-2">
           <div className="flex justify-between items-center">
-            <UserProfileLink 
-              userId={comment.authorId}
-              displayName={authorInfo.name}
-              className="font-medium text-sm"
-            />
-            <span className="text-xs text-gray-500">
-              {formatTimeAgo(createdAt)}
-            </span>
+            <div className="flex items-center">
+              <UserProfileLink 
+                userId={comment.authorId}
+                displayName={authorInfo.name}
+                className="font-medium text-sm"
+              />
+              {comment.isDeleted && (
+                <span className="ml-2 text-xs text-gray-500 italic">(deleted)</span>
+              )}
+            </div>
+            <div className="flex items-center">
+              <span className="text-xs text-gray-500 mr-2">
+                {formatTimeAgo(createdAt)}
+              </span>
+              
+              {canDeleteComment && !comment.isDeleted && (
+                <div className="relative" ref={optionsRef}>
+                  <button
+                    className="text-gray-500 hover:text-gray-700 p-1"
+                    onClick={() => setShowOptions(!showOptions)}
+                    aria-label="Comment options"
+                  >
+                    <FaEllipsisH size={12} />
+                  </button>
+                  
+                  {showOptions && (
+                    <div className="absolute right-0 mt-1 w-40 bg-white rounded-md shadow-lg z-20 py-1 border border-gray-200">
+                      <button
+                        onClick={handleDeleteComment}
+                        disabled={isDeleting}
+                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center transition-colors"
+                      >
+                        <FaTrash className="mr-2" size={12} />
+                        {isDeleting ? 'Deleting...' : 'Delete comment'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-          <p className="text-sm text-gray-700 mt-1">{comment.content}</p>
+          <p className={`text-sm mt-1 ${comment.isDeleted ? 'text-gray-500 italic' : 'text-gray-700'}`}>
+            {comment.content}
+          </p>
           
-          {user && (
+          {user && !comment.isDeleted && (
             <div className="mt-2 flex items-center">
               <button 
                 onClick={() => setShowReplyForm(!showReplyForm)}
-                className="text-xs text-gray-500 hover:text-[#004C54]"
+                className="text-xs text-gray-500 hover:text-[#004C54] flex items-center"
               >
+                <FaReply size={10} className="mr-1" />
                 {showReplyForm ? 'Cancel' : 'Reply'}
               </button>
               
@@ -209,6 +324,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, postId, onReplyAdded
               comment={reply} 
               postId={postId}
               onReplyAdded={onReplyAdded}
+              onCommentDeleted={onCommentDeleted}
               level={currentLevel + 1}
             />
           ))}
@@ -229,6 +345,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
   const [editedContent, setEditedContent] = useState(post.content);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [forceUpdate, setForceUpdate] = useState(false);
   const optionsRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   
@@ -465,6 +582,13 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
     }
   };
 
+  const handleCommentDeleted = async (commentId: string) => {
+    // Update the local state to reflect the deleted comment
+    // This is already handled by the markCommentAsDeleted function
+    // We're just forcing a re-render here
+    setForceUpdate(prev => !prev);
+  };
+
   return (
     <div className={`bg-white rounded-lg shadow-md p-4 relative ${isDeleting ? 'opacity-60 pointer-events-none' : ''}`}>
       {isDeleting && (
@@ -584,7 +708,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
           
           {showComments && (
             <div className="mt-4 space-y-4">
-              {post.comments.length > 0 ? (
+              <h3 className="text-sm font-medium text-gray-700">
+                {post.comments.length > 0 ? `Comments (${post.comments.length})` : 'No comments yet'}
+              </h3>
+              
+              {post.comments.length > 0 && (
                 <div className="space-y-3">
                   {post.comments.map(comment => (
                     <CommentItem 
@@ -592,11 +720,10 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
                       comment={comment} 
                       postId={post.id}
                       onReplyAdded={handleAddReply}
+                      onCommentDeleted={handleCommentDeleted}
                     />
                   ))}
                 </div>
-              ) : (
-                <p className="text-sm text-gray-500 text-center py-2">No comments yet</p>
               )}
               
               <form onSubmit={handleSubmitComment} className="flex space-x-2">
