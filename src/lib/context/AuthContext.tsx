@@ -1,27 +1,24 @@
 'use client';
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User } from 'firebase/auth';
-import { auth, db } from '../firebaseConfig';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { User, updateProfile } from 'firebase/auth';
+import { auth } from '../firebaseConfig';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 
-// Extended user interface that includes Firestore user data
-export interface ExtendedUser extends User {
+// Extend the Firebase User type
+type ExtendedUser = User & {
   firestoreData?: {
-    displayName: string;
-    photoURL: string;
-    bio: string;
-    email: string;
-    status: string;
-    role: string;
-    createdAt: Date;
-    updatedAt: Date;
+    displayName?: string;
+    photoURL?: string;
+    [key: string]: unknown;
   };
-}
+};
 
 interface AuthContextType {
   user: ExtendedUser | null;
   loading: boolean;
-  firestoreLoading: boolean;
+  updateUserProfile: (profileData: { displayName?: string; photoURL?: string }) => Promise<void>;
+  ensureUserDocument: (user: User) => Promise<void>;
 }
 
 interface AuthProviderProps {
@@ -31,76 +28,107 @@ interface AuthProviderProps {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
-  firestoreLoading: true,
+  updateUserProfile: async () => {},
+  ensureUserDocument: async () => {},
 });
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<ExtendedUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [firestoreLoading, setFirestoreLoading] = useState(true);
+
+  // Function to ensure a user document exists in Firestore
+  const ensureUserDocument = async (user: User) => {
+    if (!user) return;
+    
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+      
+      // If the user document doesn't exist, create it
+      if (!userSnap.exists()) {
+        console.log('Creating new user document for:', user.uid);
+        await setDoc(userRef, {
+          uid: user.uid,
+          displayName: user.displayName || 'Anonymous',
+          email: user.email,
+          photoURL: user.photoURL || '',
+          createdAt: new Date(),
+          joinedAt: new Date(),
+          updatedAt: new Date(),
+          bio: '',
+          theme: 'light'
+        });
+      }
+    } catch (error) {
+      console.error('Error ensuring user document exists:', error);
+    }
+  };
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
-      console.log('AuthContext - Auth state changed:', firebaseUser ? `User: ${firebaseUser.uid}` : 'No user');
-      setUser(firebaseUser as ExtendedUser | null);
+    const unsubscribe = auth.onAuthStateChanged(async (authUser) => {
+      if (authUser) {
+        // Ensure user document exists when user signs in
+        await ensureUserDocument(authUser);
+        
+        // Fetch user data from Firestore
+        try {
+          const userRef = doc(db, 'users', authUser.uid);
+          const userSnap = await getDoc(userRef);
+          
+          if (userSnap.exists()) {
+            // Attach Firestore data to the user object
+            const extendedUser = {
+              ...authUser,
+              firestoreData: userSnap.data()
+            } as ExtendedUser;
+            
+            setUser(extendedUser);
+          } else {
+            setUser(authUser as ExtendedUser);
+          }
+        } catch (error) {
+          console.error('Error fetching user data from Firestore:', error);
+          setUser(authUser as ExtendedUser);
+        }
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Sync with Firestore user document whenever Firebase user changes
-  useEffect(() => {
-    if (!user) {
-      setFirestoreLoading(false);
-      return;
-    }
-
-    console.log('AuthContext - Fetching Firestore data for user:', user.uid);
-    const userRef = doc(db, 'users', user.uid);
+  const updateUserProfile = async (profileData: { displayName?: string; photoURL?: string }) => {
+    // Get the current user directly from auth instead of using the state
+    const currentUser = auth.currentUser;
     
-    // Set up real-time listener for user data
-    const unsubscribe = onSnapshot(userRef, (doc) => {
-      if (doc.exists()) {
-        console.log('AuthContext - Firestore user data received');
-        const userData = doc.data();
-        
-        // Create a new user object with the Firestore data
-        const extendedUser: ExtendedUser = {
-          ...user,
-          firestoreData: {
-            displayName: userData.displayName || user.displayName || '',
-            photoURL: userData.photoURL || user.photoURL || '',
-            bio: userData.bio || '',
-            email: userData.email || user.email || '',
-            status: userData.status || 'online',
-            role: userData.role || 'member',
-            createdAt: userData.createdAt?.toDate() || new Date(),
-            updatedAt: userData.updatedAt?.toDate() || new Date(),
-          }
-        };
-
-        // Only update the user state if the extendedUser is different
-        if (JSON.stringify(extendedUser) !== JSON.stringify(user)) {
-          console.log('AuthContext - Updating user with Firestore data');
-          setUser(extendedUser);
-        }
-      } else {
-        console.log('AuthContext - No Firestore document exists for user:', user.uid);
-      }
+    if (!currentUser) {
+      throw new Error('No user is signed in');
+    }
+    
+    try {
+      // Update the profile using the current user from auth
+      await updateProfile(currentUser, profileData);
       
-      setFirestoreLoading(false);
-    }, (error: Error) => {
-      console.error("Error fetching user data:", error);
-      setFirestoreLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [user]);
+      // Update the state with the latest user, preserving firestoreData
+      const updatedUser = { 
+        ...currentUser,
+        ...(user?.firestoreData && { firestoreData: user.firestoreData })
+      } as ExtendedUser;
+      
+      setUser(updatedUser);
+      
+      console.log('Profile updated successfully:', profileData);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw error;
+    }
+  };
 
   return (
-    <AuthContext.Provider value={{ user, loading, firestoreLoading }}>
-      {!loading && !firestoreLoading && children}
+    <AuthContext.Provider value={{ user, loading, updateUserProfile, ensureUserDocument }}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 }

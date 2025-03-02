@@ -1,337 +1,353 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/context/AuthContext';
-import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
-import { FaQuestionCircle, FaTimes, FaUser, FaExclamationTriangle } from 'react-icons/fa';
+import { FaUser, FaEnvelope, FaCalendarAlt, FaEdit, FaSpinner } from 'react-icons/fa';
 import MainLayout from '@/layouts/MainLayout';
+import { Post } from '@/types/Post';
+import { Channel } from '@/types/Channel';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import PostCard from '@/components/Posts/PostCard';
+import EditProfileModal from '@/components/Profile/EditProfileModal';
 
-export default function ProfilePage() {
-  const { user } = useAuth();
+
+interface UserProfile {
+  id?: string;
+  displayName: string;
+  email: string | null;
+  photoURL?: string | null;
+  bio?: string;
+  createdAt?: Date;
+  joinedAt?: Date;
+  // Add other fields as needed
+}
+
+interface UserPost extends Post {
+  // Define specific fields for user posts if needed
+  authorName: string;
+  authorPhotoURL?: string;
+}
+
+const ProfilePage = () => {
+  const { user, ensureUserDocument } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const isCompletionRequired = searchParams.get('complete') === 'required';
-  
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [showImageGuide, setShowImageGuide] = useState(false);
-  const [bioError, setBioError] = useState('');
-  const [nameError, setNameError] = useState('');
-  
-  const [profileData, setProfileData] = useState({
-    displayName: '',
-    email: '',
-    photoURL: '',
-    bio: '',
-  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [userPosts, setUserPosts] = useState<UserPost[]>([]);
+  const [userChannels, setUserChannels] = useState<Channel[]>([]);
+  const [activeTab, setActiveTab] = useState<'posts' | 'channels'>('posts');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  const [error, setError] = useState('');
-
-  const isValidImageUrl = (url: string) => {
-    if (!url) return false;
-    try {
-      new URL(url);
-      return url.startsWith('http://') || url.startsWith('https://');
-    } catch {
-      return false;
+  const fetchUserData = useCallback(async () => {
+    if (!user || !user.uid) {
+      setIsLoading(false);
+      return;
     }
-  };
+
+    try {
+      // Ensure user document exists before fetching
+      await ensureUserDocument(user);
+      
+      // Fetch user profile
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+      
+      if (userSnap.exists()) {
+        setUserProfile({
+          ...userSnap.data(),
+          id: user.uid,
+          displayName: user.displayName || userSnap.data().displayName || 'Anonymous',
+          email: user.email || '',
+          photoURL: user.photoURL || undefined
+        });
+      } else {
+        // This should not happen now that we ensure the document exists
+        setUserProfile({
+          id: user.uid,
+          displayName: user.displayName || 'Anonymous',
+          email: user.email || '',
+          photoURL: user.photoURL || undefined,
+          bio: '',
+          joinedAt: new Date()
+        });
+      }
+      
+      // Fetch recent posts
+      const postsRef = collection(db, 'posts');
+      const postsQuery = query(
+        postsRef,
+        where('authorId', '==', user.uid),
+        orderBy('createdAt', 'desc'),
+        limit(5)
+      );
+      
+      const postsSnap = await getDocs(postsQuery);
+      const postsData: UserPost[] = [];
+      
+      postsSnap.forEach((doc) => {
+        const data = doc.data();
+        postsData.push({
+          id: doc.id,
+          content: data.content,
+          authorId: data.authorId,
+          authorName: data.authorName,
+          authorPhotoURL: data.authorPhotoURL,
+          channelId: data.channelId,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          lastEdited: data.lastEdited?.toDate() || null,
+          likes: data.likes || [],
+          comments: (data.comments || []).map((comment: {
+            id: string;
+            text: string;
+            authorId: string;
+            authorName: string;
+            createdAt: { toDate?: () => Date };
+          }) => ({
+            ...comment,
+            createdAt: comment.createdAt?.toDate ? comment.createdAt.toDate() : new Date()
+          })),
+          imageUrl: data.imageUrl
+        });
+      });
+      
+      setUserPosts(postsData);
+      
+      // Fetch user channels
+      const channelsRef = collection(db, 'channels');
+      const channelsQuery = query(
+        channelsRef,
+        where('members', 'array-contains', user.uid),
+        orderBy('name'),
+        limit(10)
+      );
+      
+      const channelsSnap = await getDocs(channelsQuery);
+      const channelsData: Channel[] = [];
+      
+      channelsSnap.forEach((doc) => {
+        const data = doc.data();
+        channelsData.push({
+          id: doc.id,
+          name: data.name,
+          description: data.description,
+          isPublic: data.isPublic,
+          createdBy: data.createdBy,
+          createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+          members: data.members || [],
+          admins: data.admins || [],
+          bannedUsers: data.bannedUsers || [],
+          mutedUsers: data.mutedUsers || [],
+          invitedUsers: data.invitedUsers || [],
+          inviteCode: data.inviteCode,
+          imageUrl: data.imageUrl || null
+        });
+      });
+      
+      setUserChannels(channelsData);
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, ensureUserDocument]);
 
   useEffect(() => {
-    if (!user) {
-      router.push('/login');
-      return;
+    if (user) {
+      fetchUserData();
     }
+  }, [user, fetchUserData]);
 
-    const fetchUserProfile = async () => {
-      try {
-        // If we have Firestore data in the user object, use it
-        if (user.firestoreData) {
-          setProfileData({
-            displayName: user.firestoreData.displayName || '',
-            email: user.firestoreData.email || user.email || '',
-            photoURL: user.firestoreData.photoURL || '',
-            bio: user.firestoreData.bio || '',
-          });
-          setLoading(false);
-          return;
-        }
-
-        // Otherwise, fetch from Firestore directly
-        const userRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userRef);
-        
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setProfileData({
-            displayName: userData.displayName || user.displayName || '',
-            email: userData.email || user.email || '',
-            photoURL: userData.photoURL || user.photoURL || '',
-            bio: userData.bio || '',
-          });
-        } else {
-          // Create a new user document if it doesn't exist
-          const newUserData = {
-            displayName: user.displayName || '',
-            email: user.email || '',
-            photoURL: user.photoURL || '',
-            bio: '',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            status: 'online',
-            role: 'member'
-          };
-          
-          await setDoc(userRef, newUserData);
-          setProfileData(newUserData);
-        }
-      } catch (err) {
-        console.error('Error fetching profile:', err);
-        setError('Failed to load profile data');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserProfile();
-  }, [user, router]);
-
-  const handleSave = async () => {
-    if (!user) return;
-    
-    // Reset errors
-    setBioError('');
-    setNameError('');
-    setError('');
-    
-    // Validate required fields
-    let hasError = false;
-    
-    if (!profileData.displayName.trim()) {
-      setNameError('Display name is required');
-      hasError = true;
-    }
-    
-    if (!profileData.bio.trim()) {
-      setBioError('Bio is required - please tell us a little about yourself, it can literally be anything or a single word');
-      hasError = true;
-    }
-    
-    if (hasError) {
-      return;
-    }
-    
-    setSaving(true);
-
-    try {
-      const userRef = doc(db, 'users', user.uid);
-      const userDoc = await getDoc(userRef);
-      
-      const userData = {
-        displayName: profileData.displayName.trim(),
-        photoURL: profileData.photoURL,
-        bio: profileData.bio.trim(),
-        email: user.email,
-        updatedAt: new Date(),
-        status: 'online',
-        role: 'member',
-        // Add createdAt only if the document is being created for the first time
-        ...(userDoc.exists() ? {} : { createdAt: new Date() })
-      };
-
-      if (userDoc.exists()) {
-        await updateDoc(userRef, userData);
-      } else {
-        await setDoc(userRef, userData);
-      }
-      
-      // If this was a required completion, redirect to dashboard
-      if (isCompletionRequired) {
-        router.push('/dashboard');
-      }
-    } catch (err) {
-      console.error('Error updating profile:', err);
-      setError('Failed to update profile');
-    } finally {
-      setSaving(false);
-    }
+  const handleProfileUpdated = () => {
+    fetchUserData();
   };
 
-  if (loading) {
+  if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600"></div>
-      </div>
+      <MainLayout>
+        <div className="flex justify-center items-center h-full">
+          <p>Please log in to view your profile</p>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex justify-center items-center h-full">
+          <FaSpinner className="animate-spin text-[#004C54]" size={32} />
+        </div>
+      </MainLayout>
     );
   }
 
   return (
     <MainLayout>
-      <div className="min-h-screen bg-gradient-to-br from-[#003038] via-[#004C54] to-[#046A38] text-white">
-        <div className="absolute inset-0 bg-black/10 backdrop-blur-[2px]"></div>
-        <div className="relative px-4 py-12 sm:px-6 lg:px-8">
-          <div className="max-w-3xl mx-auto">
-            <h1 className="text-5xl font-bold tracking-tight text-white text-center mb-6 drop-shadow-lg">
-              Edit <span className="text-[#A5ACAF]">Profile</span>
-            </h1>
-            
-            {isCompletionRequired && (
-              <div className="mb-8 p-4 bg-yellow-600/50 backdrop-blur-sm text-white rounded-xl flex items-center gap-3">
-                <FaExclamationTriangle className="text-yellow-300 flex-shrink-0" size={24} />
-                <div>
-                  <h2 className="font-bold text-xl">Profile Completion Required</h2>
-                  <p>Please complete your profile before continuing. You need to add a display name and a short bio.</p>
+      <div className="max-w-4xl mx-auto py-8 px-4">
+        {/* Profile Header */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+          <div className="h-32 bg-gradient-to-r from-[#004C54] to-[#046A38]"></div>
+          <div className="p-6 relative">
+            <div className="absolute -top-16 left-6 border-4 border-white rounded-full overflow-hidden">
+              {userProfile?.photoURL ? (
+                <div className="relative w-32 h-32">
+                  <Image 
+                    src={userProfile.photoURL} 
+                    alt={userProfile.displayName} 
+                    fill
+                    sizes="128px"
+                    className="object-cover"
+                  />
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="w-32 h-32 bg-[#004C54] text-white flex items-center justify-center text-4xl">
+                  {userProfile?.displayName.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
             
-            {error && (
-              <div className="mb-6 p-4 bg-red-900/50 backdrop-blur-sm text-white rounded-xl text-center">
-                {error}
-              </div>
-            )}
-
-            <div className="bg-black/20 backdrop-blur-sm rounded-2xl p-8 shadow-xl">
-              <div className="mb-8 flex flex-col items-center">
-                <div className="relative w-40 h-40 mb-6">
-                  <div className="absolute inset-0 rounded-full border-4 border-[#A5ACAF] overflow-hidden transition-all duration-300 hover:border-white">
-                    {isValidImageUrl(profileData.photoURL) ? (
-                      <Image
-                        src={profileData.photoURL}
-                        alt="Profile"
-                        fill
-                        className="rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-[#003038] flex items-center justify-center">
-                        <FaUser className="text-[#A5ACAF] w-20 h-20" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="absolute bottom-0 right-0">
-                    <button
-                      onClick={() => setShowImageGuide(true)}
-                      className="bg-[#A5ACAF]/90 p-3 rounded-full shadow-lg hover:bg-white/90 transition-all duration-300 hover:scale-105"
-                      title="How to add image URL"
-                    >
-                      <FaQuestionCircle className="text-[#003038]" size={24} />
-                    </button>
+            <div className="ml-40">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-800">{userProfile?.displayName}</h1>
+                  <div className="flex items-center text-gray-500 mt-1">
+                    <FaEnvelope className="mr-2" />
+                    <span>{userProfile?.email}</span>
                   </div>
                 </div>
-
-                <div className="w-full">
-                  <label className="block text-lg font-medium text-[#A5ACAF] mb-2">
-                    Profile Image URL
-                  </label>
-                  <input
-                    type="text"
-                    value={profileData.photoURL}
-                    onChange={(e) => setProfileData({ ...profileData, photoURL: e.target.value })}
-                    className="w-full bg-black/30 border border-[#A5ACAF] rounded-xl p-3 text-white placeholder-gray-400 focus:outline-none focus:border-white focus:ring-2 focus:ring-white/20"
-                    placeholder="Enter image URL"
-                  />
-                </div>
+                
+                <button 
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940] flex items-center"
+                >
+                  <FaEdit className="mr-2" />
+                  Edit Profile
+                </button>
               </div>
-
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-lg font-medium text-[#A5ACAF] mb-2">
-                    Display Name <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={profileData.displayName}
-                    onChange={(e) => {
-                      setProfileData({ ...profileData, displayName: e.target.value });
-                      if (e.target.value.trim()) setNameError('');
-                    }}
-                    className={`w-full bg-black/30 border ${nameError ? 'border-red-400' : 'border-[#A5ACAF]'} rounded-xl p-3 text-white placeholder-gray-400 focus:outline-none focus:border-white focus:ring-2 focus:ring-white/20`}
-                  />
-                  {nameError && (
-                    <p className="mt-2 text-red-400 text-sm">{nameError}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-lg font-medium text-[#A5ACAF] mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={profileData.email}
-                    disabled
-                    className="w-full bg-black/30 border border-[#A5ACAF] rounded-xl p-3 text-white/70"
-                  />
-                  <p className="mt-2 text-sm text-[#A5ACAF]">
-                    Email cannot be changed
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-lg font-medium text-[#A5ACAF] mb-2">
-                    Bio <span className="text-red-400">*</span>
-                  </label>
-                  <textarea
-                    value={profileData.bio}
-                    onChange={(e) => {
-                      setProfileData({ ...profileData, bio: e.target.value });
-                      if (e.target.value.trim()) setBioError('');
-                    }}
-                    className={`w-full bg-black/30 border ${bioError ? 'border-red-400' : 'border-[#A5ACAF]'} rounded-xl p-3 text-white placeholder-gray-400 focus:outline-none focus:border-white focus:ring-2 focus:ring-white/20`}
-                    rows={4}
-                    placeholder="Tell us about yourself"
-                  />
-                  {bioError && (
-                    <p className="mt-2 text-red-400 text-sm">{bioError}</p>
-                  )}
-                </div>
+              
+              {userProfile?.bio && (
+                <p className="mt-4 text-gray-700">{userProfile.bio}</p>
+              )}
+              
+              <div className="mt-4 flex items-center text-gray-500">
+                <FaCalendarAlt className="mr-2" />
+                <span>Joined {userProfile?.joinedAt ? new Date(userProfile.joinedAt).toLocaleDateString() : 'recently'}</span>
               </div>
-
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="mt-8 w-full bg-[#A5ACAF] text-[#003038] py-4 px-8 rounded-xl text-lg font-semibold shadow-lg hover:bg-white hover:text-[#004C54] transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
-              >
-                {saving ? 'Saving...' : isCompletionRequired ? 'Complete Profile' : 'Save Changes'}
-              </button>
             </div>
           </div>
         </div>
-      </div>
-
-      {showImageGuide && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-[#003038] rounded-2xl p-8 max-w-md w-full border border-[#A5ACAF] shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold text-white">How to Add an Image URL</h3>
-              <button
-                onClick={() => setShowImageGuide(false)}
-                className="text-[#A5ACAF] hover:text-white transition-colors duration-300"
-              >
-                <FaTimes size={24} />
-              </button>
-            </div>
-            <ol className="list-decimal list-inside space-y-3 text-[#A5ACAF]">
-              <li>Go to Google Images</li>
-              <li>Find the image you want to use</li>
-              <li>Right-click on the image</li>
-              <li>Select &quot;Copy image address&quot; or &quot;Copy image link&quot;</li>
-              <li>Paste the URL in the image field</li>
-            </ol>
-            <p className="mt-4 text-sm text-[#A5ACAF]">
-              Note: Make sure the image URL ends with an image extension (e.g., .jpg, .png, .gif)
-            </p>
+        
+        {/* Tabs */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="flex border-b">
             <button
-              onClick={() => setShowImageGuide(false)}
-              className="mt-6 w-full bg-[#A5ACAF] text-[#003038] py-3 rounded-xl text-lg font-semibold hover:bg-white hover:text-[#004C54] transition-all duration-300"
+              className={`px-6 py-3 font-medium ${
+                activeTab === 'posts' 
+                  ? 'text-[#004C54] border-b-2 border-[#004C54]' 
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+              onClick={() => setActiveTab('posts')}
             >
-              Got it!
+              Recent Posts
+            </button>
+            <button
+              className={`px-6 py-3 font-medium ${
+                activeTab === 'channels' 
+                  ? 'text-[#004C54] border-b-2 border-[#004C54]' 
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+              onClick={() => setActiveTab('channels')}
+            >
+              My Channels
             </button>
           </div>
+          
+          {/* Recent Posts */}
+          {activeTab === 'posts' && (
+            <div className="p-4">
+              {userPosts.length > 0 ? (
+                <div className="space-y-4">
+                  {userPosts.map((post) => (
+                    <PostCard key={post.id} post={post} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <FaUser className="mx-auto text-gray-300 mb-2" size={32} />
+                  <p className="text-gray-500 mb-4">You haven&apos;t created any posts yet</p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* User Channels */}
+          {activeTab === 'channels' && (
+            <div className="p-4">
+              {userChannels.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {userChannels.map((channel) => (
+                    <div 
+                      key={channel.id}
+                      className="border rounded-lg p-4 hover:border-[#004C54] cursor-pointer transition-colors"
+                      onClick={() => router.push(`/dashboard?channel=${channel.id}`)}
+                    >
+                      <div className="flex items-center">
+                        {channel.imageUrl ? (
+                          <div className="relative w-12 h-12 rounded-md overflow-hidden mr-3">
+                            <Image 
+                              src={channel.imageUrl} 
+                              alt={channel.name}
+                              fill
+                              sizes="48px"
+                              className="object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-100 rounded-md flex items-center justify-center mr-3 text-gray-500">
+                            {channel.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        
+                        <div>
+                          <h3 className="font-medium text-gray-800">{channel.name}</h3>
+                          <p className="text-sm text-gray-500 truncate">
+                            {channel.members.length} {channel.members.length === 1 ? 'member' : 'members'}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {channel.description && (
+                        <p className="mt-2 text-sm text-gray-600 line-clamp-2">{channel.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <FaUser className="mx-auto text-gray-300 mb-2" size={32} />
+                  <p className="text-gray-500 mb-4">You haven&apos;t joined any channels yet</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </div>
+      
+      {/* Edit Profile Modal */}
+      <EditProfileModal 
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onProfileUpdated={handleProfileUpdated}
+        initialData={{
+          displayName: userProfile?.displayName,
+          bio: userProfile?.bio,
+          photoURL: userProfile?.photoURL || undefined
+        }}
+      />
     </MainLayout>
   );
-}
+};
+
+export default ProfilePage;

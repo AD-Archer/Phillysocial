@@ -5,7 +5,7 @@ import { db } from '@/lib/firebaseConfig';
 import { Channel } from '@/types/Channel';
 import { useAuth } from '@/lib/context/AuthContext';
 import ChannelHeader from './ChannelHeader';
-import ManageChannelMembersModal from '../../models/ManageChannelMembersModal';
+import { ManageChannelMembersModal } from '../../models/ManageChannelMembersModal';
 import InviteCodeBanner from './InviteCodeBanner';
 import ChannelManagementPanel from './ChannelManagementPanel';
 import { FaUserFriends, FaExclamationTriangle } from 'react-icons/fa';
@@ -56,7 +56,7 @@ const ChannelView: React.FC<ChannelViewProps> = ({ channelId }) => {
             description: data.description,
             isPublic: data.isPublic,
             createdBy: data.createdBy,
-            createdAt: data.createdAt.toDate(),
+            createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
             members: data.members || [],
             admins: data.admins || [],
             bannedUsers: data.bannedUsers || [],

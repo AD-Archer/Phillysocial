@@ -1,12 +1,15 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, limit, doc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
+import { useAuth } from '@/lib/context/AuthContext';
 import { Post, Comment } from '@/types/Post';
 import { Channel } from '@/types/Channel';
 import PostCard from './PostCard';
 import CreatePostForm from './CreatePostForm';
-import { FaExclamationTriangle } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FaExclamationTriangle, FaInfoCircle, FaSpinner } from 'react-icons/fa';
+import { useToast } from '../../layouts/Toast';
 
 interface PostListProps {
   channelId: string | null;
@@ -15,248 +18,266 @@ interface PostListProps {
 const PostList: React.FC<PostListProps> = ({ channelId }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [channel, setChannel] = useState<Channel | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [userCanPost, setUserCanPost] = useState(false);
+  const { user } = useAuth();
+  const { showToast } = useToast();
 
-  // Fetch channel info with real-time updates
+  // Fetch channel data
   useEffect(() => {
     if (!channelId) {
       setChannel(null);
+      setPosts([]);
+      setIsLoading(false);
       return;
     }
-    
-    setIsLoading(true);
-    
-    // Set up real-time listener for the channel
-    const channelRef = doc(db, 'channels', channelId);
-    const unsubscribe = onSnapshot(
-      channelRef,
-      (doc) => {
-        if (doc.exists()) {
-          const data = doc.data();
-          setChannel({
-            id: doc.id,
-            name: data.name || 'Unnamed Channel',
-            description: data.description || '',
-            createdBy: data.createdBy || '',
-            createdAt: data.createdAt?.toDate() || new Date(),
-            members: data.members || [],
-            admins: data.admins || [],
-            isPublic: data.isPublic !== undefined ? data.isPublic : true,
-            imageUrl: data.imageUrl
-          });
-          setIsLoading(false);
-        } else {
-          setChannel(null);
-          setError('Channel not found');
-          setIsLoading(false);
-        }
-      },
-      (err) => {
-        console.error('Error fetching channel:', err);
-        setError('Failed to load channel information');
-        setIsLoading(false);
-      }
-    );
-    
-    // Clean up listener on unmount
-    return () => unsubscribe();
-  }, [channelId]);
 
-  // Fetch posts with real-time updates
+    setIsLoading(true);
+    setError(null);
+
+    const fetchChannel = async () => {
+      try {
+        const channelRef = doc(db, 'channels', channelId);
+        const channelSnap = await getDoc(channelRef);
+        
+        if (!channelSnap.exists()) {
+          setError('Channel not found');
+          setChannel(null);
+          setIsLoading(false);
+          return;
+        }
+        
+        const channelData = channelSnap.data();
+        const channelObj: Channel = {
+          id: channelSnap.id,
+          name: channelData.name,
+          description: channelData.description,
+          isPublic: channelData.isPublic,
+          createdBy: channelData.createdBy,
+          createdAt: channelData.createdAt ? channelData.createdAt.toDate() : new Date(),
+          members: channelData.members || [],
+          admins: channelData.admins || [],
+          bannedUsers: channelData.bannedUsers || [],
+          mutedUsers: channelData.mutedUsers || [],
+          invitedUsers: channelData.invitedUsers || [],
+          inviteCode: channelData.inviteCode,
+          imageUrl: channelData.imageUrl || null,
+        };
+        
+        setChannel(channelObj);
+        
+        // Check if user can post
+        if (user) {
+          const isMember = channelObj.members.includes(user.uid);
+          const isMuted = channelObj.mutedUsers?.includes(user.uid) || false;
+          setUserCanPost(isMember && !isMuted);
+        } else {
+          setUserCanPost(false);
+        }
+      } catch (error) {
+        console.error('Error fetching channel:', error);
+        setError('Failed to load channel information');
+        setChannel(null);
+      }
+    };
+    
+    fetchChannel();
+  }, [channelId, user]);
+
+  // Fetch posts for the selected channel
   useEffect(() => {
     if (!channelId) {
       setPosts([]);
+      setIsLoading(false);
       return;
     }
     
     setIsLoading(true);
-    setError('');
+    setError(null);
     
     try {
-      // Set up real-time listener for posts
       const postsRef = collection(db, 'posts');
       const q = query(
         postsRef,
         where('channelId', '==', channelId),
-        orderBy('createdAt', 'desc'),
-        limit(50)
+        orderBy('createdAt', 'desc')
       );
       
       const unsubscribe = onSnapshot(
         q,
-        (snapshot) => {
-          const fetchedPosts: Post[] = [];
-          snapshot.forEach(doc => {
+        (querySnapshot) => {
+          const postsData: Post[] = [];
+          querySnapshot.forEach((doc) => {
             const data = doc.data();
-            // Handle dates properly
-            const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : new Date();
-            const lastEdited = data.lastEdited?.toDate ? data.lastEdited.toDate() : undefined;
-            
-            // Define a recursive type for comment data from Firestore
-            type FirestoreCommentData = {
-              id: string;
-              content: string;
-              authorId: string;
-              authorName: string;
-              authorPhotoURL?: string;
-              createdAt: { toDate?: () => Date } | Date;
-              parentId?: string;
-              replies?: FirestoreCommentData[];
-            };
-
-            // Process comments to ensure dates are properly converted
-            const processComments = (comments: FirestoreCommentData[]): Comment[] => {
-              return comments.map(comment => {
-                // Process this comment
-                const processedComment = {
-                  id: comment.id,
-                  content: comment.content,
-                  authorId: comment.authorId,
-                  authorName: comment.authorName,
-                  authorPhotoURL: comment.authorPhotoURL,
-                  parentId: comment.parentId,
-                  createdAt: comment.createdAt && typeof comment.createdAt === 'object' && 'toDate' in comment.createdAt && typeof comment.createdAt.toDate === 'function'
-                    ? comment.createdAt.toDate()
-                    : comment.createdAt instanceof Date ? comment.createdAt : new Date()
-                } as Comment;
-                
-                // Process nested replies if they exist
-                if (Array.isArray(comment.replies) && comment.replies.length > 0) {
-                  processedComment.replies = processComments(comment.replies);
-                }
-                
-                return processedComment;
-              });
-            };
-            
-            const processedComments = processComments(data.comments || []);
-            
-            fetchedPosts.push({
+            postsData.push({
               id: doc.id,
-              content: data.content || '',
-              authorId: data.authorId || '',
-              authorName: data.authorName || 'Anonymous',
+              content: data.content,
+              authorId: data.authorId,
+              authorName: data.authorName,
               authorPhotoURL: data.authorPhotoURL,
               channelId: data.channelId,
-              createdAt: createdAt,
-              lastEdited: lastEdited,
+              createdAt: data.createdAt?.toDate() || new Date(),
+              lastEdited: data.lastEdited?.toDate() || null,
               likes: data.likes || [],
-              comments: processedComments,
-              imageUrl: data.imageUrl
-            });
+              comments: (data.comments || []).map((comment: Comment) => ({
+                ...comment,
+                createdAt: comment.createdAt && 'toDate' in comment.createdAt 
+                  ? (comment.createdAt as { toDate(): Date }).toDate() 
+                  : new Date()
+              })),
+              imageUrl: data.imageUrl,
           });
+        });
           
-          setPosts(fetchedPosts);
+          // Ensure we have unique posts by ID
+          const uniquePosts = Array.from(
+            new Map(postsData.map(post => [post.id, post])).values()
+          );
+          
+          setPosts(uniquePosts);
           setIsLoading(false);
         },
         (err) => {
           console.error('Error fetching posts:', err);
-          
-          if (err instanceof Error && 'code' in err && err.code === 'permission-denied') {
-            setError('Permission denied. You may not have access to this channel.');
-          } else if (err instanceof Error) {
-            setError(`Failed to load posts: ${err.message || 'Unknown error'}`);
-          } else {
-            setError('An unknown error occurred.');
-          }
-          
+          setError('Failed to load posts');
           setIsLoading(false);
         }
       );
       
-      // Clean up listener on unmount
       return () => unsubscribe();
-    } catch (err: unknown) {
-      console.error('Error setting up posts listener:', err);
+    } catch (error) {
+      console.error('Error setting up posts listener:', error);
+      setError('Failed to set up real-time updates for posts');
       setIsLoading(false);
-      
-      if (err instanceof Error) {
-        setError(`Failed to set up real-time updates: ${err.message || 'Unknown error'}`);
-      } else {
-        setError('An unknown error occurred.');
-      }
     }
   }, [channelId]);
 
-  // These handlers are still useful for optimistic UI updates
-  const handleNewPost = (newPost: Post) => {
-    // With real-time listeners, this might not be needed anymore,
-    // but keeping it for optimistic UI updates
-    setPosts(prev => [newPost, ...prev]);
+  const handlePostCreated = () => {
+    showToast('Post created successfully', 'success');
   };
 
   const handlePostDeleted = (postId: string) => {
-    // This is still useful for immediate UI feedback before the listener updates
-    setPosts(prev => prev.filter(post => post.id !== postId));
-  };
-
-  const handlePostEdited = (postId: string, newContent: string, editedAt: Date) => {
-    // This is still useful for immediate UI feedback before the listener updates
-    setPosts(prev => 
-      prev.map(post => 
-        post.id === postId 
-          ? { ...post, content: newContent, lastEdited: editedAt } 
-          : post
-      )
-    );
+    setPosts((prevPosts) => prevPosts.filter((post) => post.id !== postId));
+    showToast('Post deleted successfully', 'success');
   };
 
   if (!channelId) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-8 text-center">
-        <h3 className="text-lg font-medium text-gray-700">Select a channel to view posts</h3>
-        <p className="text-gray-500 mt-2">Or create a new channel to get started</p>
-      </div>
+      <motion.div 
+        className="flex flex-col items-center justify-center h-full p-8 text-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+      >
+        <FaInfoCircle className="text-[#004C54] mb-4" size={32} />
+        <h2 className="text-xl font-semibold text-gray-700 mb-2">Select a channel</h2>
+        <p className="text-gray-500 max-w-md">
+          Choose a channel from the sidebar or create a new one to view posts
+        </p>
+      </motion.div>
+    );
+  }
+
+  if (isLoading && !channel) {
+    return (
+      <motion.div 
+        className="flex flex-col items-center justify-center h-full p-8"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+      >
+        <FaSpinner className="text-[#004C54] animate-spin mb-4" size={32} />
+        <p className="text-gray-500">Loading channel information...</p>
+      </motion.div>
+    );
+  }
+
+  if (error) {
+    return (
+      <motion.div 
+        className="flex flex-col items-center justify-center h-full p-8 text-center"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+      >
+        <FaExclamationTriangle className="text-yellow-500 mb-4" size={32} />
+        <h2 className="text-xl font-semibold text-gray-700 mb-2">Error</h2>
+        <p className="text-gray-500 max-w-md">{error}</p>
+      </motion.div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {channel && (
-        <div className="bg-white rounded-lg shadow-md p-4">
-          <h2 className="text-xl font-semibold text-[#004C54]">#{channel.name}</h2>
-          {channel.description && (
-            <p className="text-gray-600 mt-1">{channel.description}</p>
-          )}
-        </div>
+    <div className="flex flex-col h-full">
+      {/* Create Post Form */}
+      {userCanPost && (
+        <CreatePostForm channelId={channelId} onPostCreated={handlePostCreated} />
       )}
       
-      <CreatePostForm channelId={channelId} onPostCreated={handleNewPost} />
+      {/* User cannot post message */}
+      {user && !userCanPost && channel && (
+        <motion.div 
+          className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4 rounded-r-md"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <FaExclamationTriangle className="h-5 w-5 text-yellow-400" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                {channel.mutedUsers?.includes(user.uid) 
+                  ? "You are muted in this channel and cannot post messages."
+                  : "You need to join this channel before you can post messages."}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
       
-      {isLoading ? (
-        <div className="flex justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#004C54]"></div>
-        </div>
-      ) : error ? (
-        <div className="bg-red-50 p-6 rounded-md text-center">
-          <FaExclamationTriangle className="mx-auto text-red-500 mb-2" size={24} />
-          <p className="text-red-600 font-medium">{error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="mt-3 text-sm text-[#004C54] hover:underline"
+      {/* Posts List */}
+      <div className="flex-1 overflow-y-auto">
+        {isLoading ? (
+          <div className="flex justify-center items-center py-8">
+            <FaSpinner className="animate-spin text-[#004C54]" size={24} />
+          </div>
+        ) : posts.length > 0 ? (
+          <AnimatePresence mode="popLayout">
+            {posts.map((post) => (
+              <motion.div
+                key={post.id}
+                layout
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <PostCard post={post} onDelete={handlePostDeleted} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        ) : (
+          <motion.div 
+            className="flex flex-col items-center justify-center py-12 text-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3, delay: 0.2 }}
           >
-            Try Again
-          </button>
-        </div>
-      ) : posts.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-8 text-center">
-          <h3 className="text-lg font-medium text-gray-700">No posts yet</h3>
-          <p className="text-gray-500 mt-2">Be the first to post in this channel!</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {posts.map((post, index) => (
-            <PostCard 
-              key={`${post.id}-${index}`}
-              post={post}
-              channel={channel ? { admins: channel.admins } : undefined}
-              onPostDeleted={handlePostDeleted}
-              onPostEdited={handlePostEdited}
-            />
-          ))}
-        </div>
-      )}
+            <div className="bg-gray-100 rounded-full p-6 mb-4">
+              <FaInfoCircle className="text-[#004C54]" size={24} />
+            </div>
+            <h3 className="text-lg font-medium text-gray-700 mb-1">No posts yet</h3>
+            <p className="text-gray-500 max-w-md">
+              {userCanPost 
+                ? "Be the first to start a conversation in this channel!"
+                : "There are no posts in this channel yet."}
+            </p>
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 };

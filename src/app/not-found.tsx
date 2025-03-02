@@ -1,9 +1,34 @@
 'use client';
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import MainLayout from '@/layouts/MainLayout';
 import { FaExclamationTriangle } from 'react-icons/fa';
+import { useAuth } from '@/lib/context/AuthContext';
 
 export default function NotFound() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  // Redirect to dashboard if user is logged in
+  useEffect(() => {
+    if (!loading && user) {
+      router.push('/dashboard');
+    }
+  }, [user, loading, router]);
+
+  // If still loading or user is logged in and about to redirect, show minimal loading state
+  if (loading || (user && !loading)) {
+    return (
+      <MainLayout>
+        <div className="min-h-[80vh] flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#004C54]"></div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Show not found page for non-authenticated users
   return (
     <MainLayout>
       <div className="min-h-[80vh] flex items-center justify-center w-full px-4">

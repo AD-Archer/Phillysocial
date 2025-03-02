@@ -44,10 +44,9 @@ export default function NewsLayout({
       />
       
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-
-      {/* Profile Dropdown - Only show if user is logged in */}
-      {isProfileOpen && user && (
-        <div className="absolute right-4 top-16 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+      {/* Profile Dropdown */}
+      {isProfileOpen && (
+        <div className="absolute right-4 top-16 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-[60]">
           <div className="py-1">
             <button
               onClick={handleSignOut}

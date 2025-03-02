@@ -311,38 +311,46 @@ const NewsFeed: React.FC<NewsFeedProps> = ({
           <article key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col h-full">
             <a href={item.link} target="_blank" rel="noopener noreferrer" className="block flex-grow flex flex-col">
               <div className="relative">
-                {/* Source badge - always visible on top of the image */}
-                <div className="absolute top-3 left-3 z-10 flex items-center bg-white bg-opacity-90 rounded-full px-2 py-1 shadow-sm">
-                  {item.sourceIcon ? (
-                    <div className="relative w-6 h-6 mr-2 flex-shrink-0 overflow-hidden">
-                      <Image
-                        src={item.sourceIcon}
-                        alt={item.source}
-                        width={24}
-                        height={24}
-                        className="rounded-full object-contain"
-                        onError={(e) => {
-                          // If source icon fails to load, replace with a source initial
-                          const target = e.target as HTMLImageElement;
-                          target.onerror = null; // Prevent infinite loop
-                          target.style.display = 'none';
-                          
-                          // Add a fallback element
-                          const parent = target.parentElement;
-                          if (parent) {
-                            const fallback = document.createElement('div');
-                            fallback.className = 'w-6 h-6 flex items-center justify-center bg-[#004C54] rounded-full text-white text-xs font-bold';
-                            fallback.textContent = item.source.charAt(0);
-                            parent.appendChild(fallback);
-                          }
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center bg-[#004C54] rounded-full text-white text-xs font-bold mr-2">
-                      {item.source.charAt(0)}
-                    </div>
-                  )}
+                {/* Source badge - always visible on top of the image but below the header */}
+                <div className="absolute top-3 left-3 z-[5] flex items-center bg-white bg-opacity-90 rounded-full px-2 py-1 shadow-sm">
+                  {/* Source Icon with better error handling */}
+                  <div className="relative w-6 h-6 mr-2 flex-shrink-0 overflow-hidden">
+                    {item.sourceIcon ? (
+                      <div className="w-6 h-6 flex items-center justify-center">
+                        <Image
+                          src={item.sourceIcon}
+                          alt={item.source}
+                          width={24}
+                          height={24}
+                          className="rounded-full object-contain"
+                          onError={(e) => {
+                            // If source icon fails to load, replace with a source initial
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            
+                            // Find the parent element and add a fallback
+                            const parent = target.parentElement;
+                            if (parent) {
+                              // Clear any existing content first
+                              while (parent.firstChild) {
+                                parent.removeChild(parent.firstChild);
+                              }
+                              
+                              // Create the fallback element
+                              const fallback = document.createElement('div');
+                              fallback.className = 'w-6 h-6 flex items-center justify-center bg-[#004C54] rounded-full text-white text-xs font-bold';
+                              fallback.textContent = item.source.charAt(0).toUpperCase();
+                              parent.appendChild(fallback);
+                            }
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-6 h-6 flex items-center justify-center bg-[#004C54] rounded-full text-white text-xs font-bold">
+                        {item.source.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
                   <span className="text-xs font-medium text-gray-800 truncate max-w-[100px]">{item.source}</span>
                   {item.isPhillyNews && (
                     <span className="ml-1 inline-flex items-center justify-center w-4 h-4 bg-[#046A38] rounded-full flex-shrink-0">
@@ -351,37 +359,53 @@ const NewsFeed: React.FC<NewsFeedProps> = ({
                   )}
                 </div>
                 
-                {item.imageUrl ? (
-                  <div className="relative h-48 overflow-hidden">
+                {/* Article Image with improved error handling */}
+                <div className="relative h-48 overflow-hidden bg-gray-100">
+                  {item.imageUrl ? (
                     <Image
                       src={item.imageUrl}
                       alt={item.title}
                       fill
-                      className="object-cover"
+                      className="object-cover transition-opacity duration-300"
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       onError={(e) => {
                         // If image fails to load, replace with a fallback
                         const target = e.target as HTMLImageElement;
-                        target.onerror = null; // Prevent infinite loop
-                        target.style.display = 'none'; // Hide the broken image
+                        target.style.display = 'none';
                         
-                        // Add a fallback element
+                        // Find the parent element and add a fallback
                         const parent = target.parentElement;
                         if (parent) {
-                          const fallback = document.createElement('div');
-                          fallback.className = 'h-full w-full flex items-center justify-center bg-gray-100';
-                          fallback.innerHTML = '<svg class="text-gray-400" width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM19 19H5V5H19V19ZM13.96 12.29L11.21 15.83L9.25 13.47L6.5 17H17.5L13.96 12.29Z" fill="currentColor"/></svg>';
-                          parent.appendChild(fallback);
+                          // Create a fallback container
+                          const fallbackContainer = document.createElement('div');
+                          fallbackContainer.className = 'h-full w-full flex flex-col items-center justify-center bg-gray-100 p-4';
+                          
+                          // Add an icon
+                          const icon = document.createElement('div');
+                          icon.className = 'text-gray-400 mb-2';
+                          icon.innerHTML = '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM19 19H5V5H19V19ZM13.96 12.29L11.21 15.83L9.25 13.47L6.5 17H17.5L13.96 12.29Z" fill="currentColor"/></svg>';
+                          
+                          // Add source name
+                          const sourceName = document.createElement('div');
+                          sourceName.className = 'text-sm text-gray-500 font-medium text-center';
+                          sourceName.textContent = item.source;
+                          
+                          // Append elements
+                          fallbackContainer.appendChild(icon);
+                          fallbackContainer.appendChild(sourceName);
+                          parent.appendChild(fallbackContainer);
                         }
                       }}
+                      placeholder="blur"
+                      blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAFdQIQX8Fo/QAAAABJRU5ErkJggg=="
                     />
-                  </div>
-                ) : (
-                  <div className="h-48 bg-gray-100 flex flex-col items-center justify-center">
-                    <FaNewspaper className="text-gray-400 mb-2" size={48} />
-                    <span className="text-sm text-gray-500 font-medium px-4 text-center">No image available</span>
-                  </div>
-                )}
+                  ) : (
+                    <div className="h-full w-full flex flex-col items-center justify-center">
+                      <FaNewspaper className="text-gray-400 mb-2" size={48} />
+                      <span className="text-sm text-gray-500 font-medium px-4 text-center">{item.source}</span>
+                    </div>
+                  )}
+                </div>
               </div>
               
               <div className="p-4 flex-grow flex flex-col">
@@ -403,7 +427,7 @@ const NewsFeed: React.FC<NewsFeedProps> = ({
                 </p>
                 
                 <div className="flex items-center justify-between text-sm mt-auto">
-                  <span className="text-gray-500 text-xs truncate max-w-[70%]">{item.author}</span>
+                  <span className="text-gray-500 text-xs truncate max-w-[70%]">{item.author || 'Staff Reporter'}</span>
                   <span className="text-[#004C54] flex items-center text-xs font-medium">
                     Read more <FaExternalLinkAlt className="ml-1" size={10} />
                   </span>

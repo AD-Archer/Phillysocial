@@ -1,476 +1,198 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
-import { FaHeart, FaRegHeart, FaComment, FaEllipsisH, FaTrash, FaEdit, FaReply } from 'react-icons/fa';
-import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
+import { FaHeart, FaRegHeart, FaComment, FaTrash, FaEdit, FaEllipsisV, FaTimes, FaCheck, FaShare } from 'react-icons/fa';
+import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Post, Comment } from '@/types/Post';
-import UserAvatar from '@/components/UserAvatar';
-import UserProfileLink from '@/components/UserProfileLink';
-
-// Simple date formatter until date-fns is installed
-const formatTimeAgo = (date: Date | { toDate: () => Date } | unknown): string => {
-  // Ensure we have a valid Date object
-  const validDate = date instanceof Date ? date : 
-                   (date && typeof date === 'object' && 'toDate' in date && typeof date.toDate === 'function') ? date.toDate() : 
-                   new Date();
-  
-  const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - validDate.getTime()) / 1000);
-  
-  if (diffInSeconds < 60) return `${diffInSeconds} seconds ago`;
-  
-  const diffInMinutes = Math.floor(diffInSeconds / 60);
-  if (diffInMinutes < 60) return `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''} ago`;
-  
-  const diffInHours = Math.floor(diffInMinutes / 60);
-  if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
-  
-  const diffInDays = Math.floor(diffInHours / 24);
-  if (diffInDays < 30) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
-  
-  const diffInMonths = Math.floor(diffInDays / 30);
-  return `${diffInMonths} month${diffInMonths > 1 ? 's' : ''} ago`;
-};
+import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
+import { useToast } from '../../layouts/Toast';
 
 interface PostCardProps {
   post: Post;
-  channel?: {
-    admins: string[];
-  };
-  onPostDeleted?: (postId: string) => void;
-  onPostEdited?: (postId: string, newContent: string, editedAt: Date) => void;
+  onDelete?: (postId: string) => void;
 }
 
-interface CommentItemProps {
-  comment: Comment;
-  postId: string;
-  onReplyAdded: (parentCommentId: string, newReply: Comment) => void;
-  onCommentDeleted: (commentId: string) => void;
-  level?: number;
-}
-
-const CommentItem: React.FC<CommentItemProps> = ({ comment, postId, onReplyAdded, onCommentDeleted, level = 0 }) => {
-  const [authorInfo, setAuthorInfo] = useState({
-    name: comment.authorName,
-    photoURL: comment.authorPhotoURL || undefined
-  });
-  const [showReplyForm, setShowReplyForm] = useState(false);
-  const [replyText, setReplyText] = useState('');
-  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
-  const [showReplies, setShowReplies] = useState(true);
-  const [showOptions, setShowOptions] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const optionsRef = useRef<HTMLDivElement>(null);
-  const { user } = useAuth();
+// Simple date formatter
+const formatDate = (date: Date | null | undefined): string => {
+  // If date is null or undefined, return 'just now'
+  if (!date) {
+    return 'just now';
+  }
   
-  // Maximum nesting level to prevent excessive indentation
-  const MAX_NESTING_LEVEL = 3;
-  const currentLevel = Math.min(level, MAX_NESTING_LEVEL);
+  // Ensure date is a Date object
+  const dateObj = date instanceof Date ? date : new Date(date);
+  
+  // Check if dateObj is valid
+  if (isNaN(dateObj.getTime())) {
+    return 'just now';
+  }
+  
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - dateObj.getTime()) / 1000);
+  
+  if (diffInSeconds < 60) {
+    return `${diffInSeconds} second${diffInSeconds !== 1 ? 's' : ''} ago`;
+  }
+  
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) {
+    return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
+  }
+  
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) {
+    return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`;
+  }
+  
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays < 7) {
+    return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`;
+  }
+  
+  return dateObj.toLocaleDateString();
+};
 
-  // Check if the current user can delete this comment
-  const canDeleteComment = user && (user.uid === comment.authorId);
+const PostCard: React.FC<PostCardProps> = ({ post, onDelete }) => {
+  const [likes, setLikes] = useState<string[]>(post.likes || []);
+  const [comments, setComments] = useState<Comment[]>(post.comments || []);
+  const [showComments, setShowComments] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState(post.content);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const { user } = useAuth();
+  const { showToast } = useToast();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Check if we're on mobile
+  useEffect(() => {
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // Initial check
+    checkIfMobile();
+    
+    // Add event listener for window resize
+    window.addEventListener('resize', checkIfMobile);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', checkIfMobile);
+  }, []);
 
-  // Handle clicks outside the options menu to close it
+  // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (optionsRef.current && !optionsRef.current.contains(event.target as Node)) {
-        setShowOptions(false);
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch the latest author information from Firestore
+  // Focus comment input when showing comments
   useEffect(() => {
-    const fetchAuthorInfo = async () => {
-      try {
-        const authorRef = doc(db, 'users', comment.authorId);
-        const authorDoc = await getDoc(authorRef);
-        
-        if (authorDoc.exists()) {
-          const authorData = authorDoc.data();
-          setAuthorInfo({
-            name: authorData.displayName || comment.authorName,
-            photoURL: authorData.photoURL || comment.authorPhotoURL
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching comment author info:', error);
-      }
-    };
-    
-    fetchAuthorInfo();
-  }, [comment.authorId, comment.authorName, comment.authorPhotoURL]);
-
-  // Ensure createdAt is a valid Date object
-  const createdAt = comment.createdAt instanceof Date 
-    ? comment.createdAt 
-    : (comment.createdAt && typeof comment.createdAt === 'object' && 
-       'toDate' in comment.createdAt && 
-       typeof (comment.createdAt as { toDate: () => Date }).toDate === 'function')
-      ? (comment.createdAt as { toDate: () => Date }).toDate()
-      : new Date();
-      
-  const handleSubmitReply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!user || !replyText.trim()) return;
-    
-    setIsSubmittingReply(true);
-    
-    try {
-      // Use Firestore user data if available, fallback to Firebase user data
-      const displayName = user.firestoreData?.displayName || user.displayName || 'Anonymous';
-      const photoURL = user.firestoreData?.photoURL || user.photoURL || undefined;
-      
-      const newReply: Comment = {
-        id: Date.now().toString(), // Simple ID generation
-        content: replyText.trim(),
-        authorId: user.uid,
-        authorName: displayName,
-        authorPhotoURL: photoURL,
-        createdAt: new Date(),
-        parentId: comment.id,
-        replies: []
-      };
-      
-      // Call the parent handler to update the post with the new reply
-      onReplyAdded(comment.id, newReply);
-      
-      // Reset form
-      setReplyText('');
-      setShowReplyForm(false);
-    } catch (error) {
-      console.error('Error adding reply:', error);
-    } finally {
-      setIsSubmittingReply(false);
+    if (showComments && commentInputRef.current) {
+      commentInputRef.current.focus();
     }
-  };
-
-  const handleDeleteComment = async () => {
-    if (!user) return;
-    
-    if (!window.confirm('Are you sure you want to delete this comment? This action cannot be undone.')) {
-      return;
-    }
-    
-    setIsDeleting(true);
-    setShowOptions(false);
-    
-    try {
-      // Create a deep copy of the current comments array
-      const postRef = doc(db, 'posts', postId);
-      const postDoc = await getDoc(postRef);
-      
-      if (postDoc.exists()) {
-        const postData = postDoc.data();
-        const updatedComments = JSON.parse(JSON.stringify(postData.comments)) as Comment[];
-        
-        // Helper function to recursively find and mark the comment as deleted
-        const markCommentAsDeleted = (comments: Comment[], commentId: string): boolean => {
-          for (let i = 0; i < comments.length; i++) {
-            const currentComment = comments[i];
-            
-            if (currentComment.id === commentId) {
-              // Mark the comment as deleted but keep its structure
-              currentComment.content = "[This comment has been deleted]";
-              currentComment.isDeleted = true;
-              return true;
-            }
-            
-            // Check nested replies if they exist
-            if (currentComment.replies && currentComment.replies.length > 0) {
-              const found = markCommentAsDeleted(currentComment.replies, commentId);
-              if (found) return true;
-            }
-          }
-          return false;
-        };
-        
-        // Mark the comment as deleted
-        markCommentAsDeleted(updatedComments, comment.id);
-        
-        // Update Firestore with the modified comments
-        await updateDoc(postRef, {
-          comments: updatedComments
-        });
-        
-        // Notify parent component about deletion
-        onCommentDeleted(comment.id);
-      }
-    } catch (error) {
-      console.error('Error deleting comment:', error);
-      alert('Failed to delete comment. Please try again.');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  // Calculate left margin based on nesting level
-  const marginLeft = currentLevel > 0 ? `${currentLevel * 8}px` : '0';
-  
-  return (
-    <div style={{ marginLeft }} className={`${isDeleting ? 'opacity-60 pointer-events-none' : ''}`}>
-      <div className="flex space-x-2">
-        <UserAvatar
-          userId={comment.authorId}
-          displayName={authorInfo.name}
-          photoURL={authorInfo.photoURL}
-          size={28}
-          className="flex-shrink-0"
-        />
-        <div className="flex-1 bg-gray-100 rounded-lg p-2">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center">
-              <UserProfileLink 
-                userId={comment.authorId}
-                displayName={authorInfo.name}
-                className="font-medium text-xs"
-              />
-              {comment.isDeleted && (
-                <span className="ml-2 text-xs text-gray-500 italic">(deleted)</span>
-              )}
-            </div>
-            <div className="flex items-center">
-              <span className="text-xs text-gray-500 mr-1 sm:mr-2">
-                {formatTimeAgo(createdAt)}
-              </span>
-              
-              {canDeleteComment && !comment.isDeleted && (
-                <div className="relative" ref={optionsRef}>
-                  <button
-                    className="text-gray-500 hover:text-gray-700 p-1"
-                    onClick={() => setShowOptions(!showOptions)}
-                    aria-label="Comment options"
-                  >
-                    <FaEllipsisH size={10} />
-                  </button>
-                  
-                  {showOptions && (
-                    <div className="absolute right-0 mt-1 w-32 sm:w-40 bg-white rounded-md shadow-lg z-20 py-1 border border-gray-200">
-                      <button
-                        onClick={handleDeleteComment}
-                        disabled={isDeleting}
-                        className="w-full text-left px-3 py-1 sm:py-2 text-xs text-red-600 hover:bg-gray-100 flex items-center transition-colors"
-                      >
-                        <FaTrash className="mr-2" size={10} />
-                        {isDeleting ? 'Deleting...' : 'Delete comment'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-          <p className={`text-xs mt-1 ${comment.isDeleted ? 'text-gray-500 italic' : 'text-gray-700'}`}>
-            {comment.content}
-          </p>
-          
-          {user && !comment.isDeleted && (
-            <div className="mt-1 sm:mt-2 flex items-center">
-              <button 
-                onClick={() => setShowReplyForm(!showReplyForm)}
-                className="text-xs text-gray-500 hover:text-[#004C54] flex items-center"
-              >
-                <FaReply size={8} className="mr-1" />
-                {showReplyForm ? 'Cancel' : 'Reply'}
-              </button>
-              
-              {comment.replies && comment.replies.length > 0 && (
-                <button 
-                  onClick={() => setShowReplies(!showReplies)}
-                  className="text-xs text-gray-500 hover:text-[#004C54] ml-3"
-                >
-                  {showReplies ? 'Hide replies' : `Show ${comment.replies.length} ${comment.replies.length === 1 ? 'reply' : 'replies'}`}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-      
-      {showReplyForm && (
-        <div className="ml-8 mt-2">
-          <form onSubmit={handleSubmitReply} className="flex space-x-2">
-            <input
-              type="text"
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              placeholder="Write a reply..."
-              className="flex-1 p-1 sm:p-2 border rounded-md text-xs focus:ring-[#004C54] focus:border-[#004C54]"
-            />
-            <button
-              type="submit"
-              disabled={!replyText.trim() || isSubmittingReply}
-              className="px-2 py-1 bg-[#004C54] text-white text-xs rounded-md hover:bg-[#003940] disabled:opacity-50 whitespace-nowrap"
-            >
-              {isSubmittingReply ? 'Sending...' : 'Reply'}
-            </button>
-          </form>
-        </div>
-      )}
-      
-      {showReplies && comment.replies && comment.replies.length > 0 && (
-        <div className="mt-2 space-y-2 sm:space-y-3">
-          {comment.replies.map(reply => (
-            <CommentItem 
-              key={reply.id} 
-              comment={reply} 
-              postId={postId}
-              onReplyAdded={onReplyAdded}
-              onCommentDeleted={onCommentDeleted}
-              level={currentLevel + 1}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPostEdited }) => {
-  const [isLiked, setIsLiked] = useState(post.likes.includes(useAuth().user?.uid || ''));
-  const [likeCount, setLikeCount] = useState(post.likes.length);
-  const [showComments, setShowComments] = useState(false);
-  const [commentText, setCommentText] = useState('');
-  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedContent, setEditedContent] = useState(post.content);
-  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
-  const [showOptions, setShowOptions] = useState(false);
-  const [forceUpdate, setForceUpdate] = useState(false);
-  const optionsRef = useRef<HTMLDivElement>(null);
-  const { user } = useAuth();
-  
-  // Add state for updated author info
-  const [authorInfo, setAuthorInfo] = useState({
-    name: post.authorName,
-    photoURL: post.authorPhotoURL || '/default-avatar.png'
-  });
-
-  // Add effect that depends on forceUpdate to trigger re-renders when comments are deleted
-  useEffect(() => {
-    // This effect will run whenever forceUpdate changes
-    // It helps ensure the component re-renders after comment deletions
-    if (forceUpdate) {
-      // Log that a re-render was triggered by forceUpdate
-      console.log('Component re-rendered due to comment deletion');
-      
-      // You could also perform additional actions here if needed
-      // For example, refreshing comment counts or updating UI elements
-    }
-  }, [forceUpdate]);
-
-  // Fetch the latest author information from Firestore
-  useEffect(() => {
-    const fetchAuthorInfo = async () => {
-      try {
-        const authorRef = doc(db, 'users', post.authorId);
-        const authorDoc = await getDoc(authorRef);
-        
-        if (authorDoc.exists()) {
-          const authorData = authorDoc.data();
-          setAuthorInfo({
-            name: authorData.displayName || post.authorName,
-            photoURL: authorData.photoURL || post.authorPhotoURL || '/default-avatar.png'
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching author info:', error);
-      }
-    };
-    
-    fetchAuthorInfo();
-  }, [post.authorId, post.authorName, post.authorPhotoURL]);
-
-  // Check if current user is admin or post creator
-  const isAdmin = channel?.admins?.includes(user?.uid || '');
-  const isPostCreator = post.authorId === user?.uid;
-  // Only post creator can edit, admins can only delete
-  const canEditPost = isPostCreator;
-  
-  // Handle click outside to close options menu
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (optionsRef.current && !optionsRef.current.contains(event.target as Node)) {
-        setShowOptions(false);
-      }
-    };
-
-    if (showOptions) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showOptions]);
+  }, [showComments]);
 
   const handleLike = async () => {
     if (!user) return;
     
-    const postRef = doc(db, 'posts', post.id);
-    
     try {
+      const postRef = doc(db, 'posts', post.id);
+      const isLiked = likes.includes(user.uid);
+      
       if (isLiked) {
+        // Unlike
         await updateDoc(postRef, {
           likes: arrayRemove(user.uid)
         });
-        setLikeCount(prev => prev - 1);
+        setLikes(likes.filter(id => id !== user.uid));
       } else {
+        // Like
         await updateDoc(postRef, {
           likes: arrayUnion(user.uid)
         });
-        setLikeCount(prev => prev + 1);
+        setLikes([...likes, user.uid]);
       }
-      setIsLiked(!isLiked);
     } catch (error) {
       console.error('Error updating like:', error);
+      setError('Failed to update like status');
+      showToast('Failed to update like status', 'error');
     }
   };
 
-  const handleSubmitComment = async (e: React.FormEvent) => {
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: `Post by ${post.authorName}`,
+        text: post.content.substring(0, 100) + (post.content.length > 100 ? '...' : ''),
+        url: window.location.href,
+      })
+      .then(() => showToast('Post shared successfully', 'success'))
+      .catch((error) => console.error('Error sharing post:', error));
+    } else {
+      // Fallback for browsers that don't support navigator.share
+      navigator.clipboard.writeText(window.location.href)
+        .then(() => showToast('Link copied to clipboard', 'success'))
+        .catch(() => showToast('Failed to copy link', 'error'));
+    }
+  };
+
+  const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!user || !commentText.trim()) return;
+    if (!user || !newComment.trim()) return;
     
     setIsSubmittingComment(true);
+    setError(null);
     
     try {
-      // Use Firestore user data if available, fallback to Firebase user data
-      const displayName = user.firestoreData?.displayName || user.displayName || 'Anonymous';
-      const photoURL = user.firestoreData?.photoURL || user.photoURL || undefined;
+      const commentId = Math.random().toString(36).substring(2, 9);
+      const now = new Date();
       
-      const newComment: Comment = {
-        id: Date.now().toString(), // Simple ID generation
-        content: commentText.trim(),
+      // Create a comment object for the UI
+      const newCommentObj: Comment = {
+        id: commentId,
+        content: newComment.trim(),
         authorId: user.uid,
-        authorName: displayName,
-        authorPhotoURL: photoURL,
-        createdAt: new Date(), // Ensure this is a proper Date object
-        replies: [] // Initialize with empty replies array
+        authorName: user.displayName || 'Anonymous',
+        createdAt: now,
+        ...(user.photoURL && { authorPhotoURL: user.photoURL })
+      };
+      
+      // Create a comment object for Firestore
+      const firestoreComment = {
+        id: commentId,
+        content: newComment.trim(),
+        authorId: user.uid,
+        authorName: user.displayName || 'Anonymous',
+        createdAt: Timestamp.fromDate(now),
+        ...(user.photoURL && { authorPhotoURL: user.photoURL })
       };
       
       const postRef = doc(db, 'posts', post.id);
       await updateDoc(postRef, {
-        comments: arrayUnion(newComment)
+        comments: arrayUnion(firestoreComment)
       });
       
-      // Update local state - ensure we're adding with the proper Date object
-      post.comments.push({
-        ...newComment,
-        createdAt: new Date(), // Explicitly use a Date object for local state
-        replies: [] // Ensure replies array is initialized
-      });
-      setCommentText('');
+      setComments([...comments, newCommentObj]);
+      setNewComment('');
+      showToast('Comment added', 'success');
     } catch (error) {
       console.error('Error adding comment:', error);
+      setError('Failed to add comment');
+      showToast('Failed to add comment', 'error');
     } finally {
       setIsSubmittingComment(false);
     }
@@ -479,312 +201,360 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
   const handleDeletePost = async () => {
     if (!user) return;
     
-    if (!window.confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+    // Check if user is the author or an admin (implement admin check as needed)
+    if (user.uid !== post.authorId) {
+      setError('You do not have permission to delete this post');
+      showToast('You do not have permission to delete this post', 'error');
       return;
     }
     
     setIsDeleting(true);
-    setShowOptions(false);
+    setError(null);
     
     try {
-      const postRef = doc(db, 'posts', post.id);
+      await deleteDoc(doc(db, 'posts', post.id));
       
-      // Instead of deleting the post, mark it as deleted
-      await updateDoc(postRef, {
-        isDeleted: true,
-        content: "[This post has been deleted]",
-        lastEdited: new Date()
-      });
-      
-      // Update local state
-      post.isDeleted = true;
-      post.content = "[This post has been deleted]";
-      post.lastEdited = new Date();
-      
-      // Notify parent component about the update
-      if (onPostDeleted) {
-        onPostDeleted(post.id);
+      if (onDelete) {
+        onDelete(post.id);
       }
-      
-      setIsDeleting(false);
+      showToast('Post deleted successfully', 'success');
     } catch (error) {
-      console.error('Error marking post as deleted:', error);
-      alert('Failed to delete post. Please try again.');
+      console.error('Error deleting post:', error);
+      setError('Failed to delete post');
+      showToast('Failed to delete post', 'error');
       setIsDeleting(false);
     }
   };
 
-  const handleEditPost = () => {
-    setIsEditing(true);
-    setShowOptions(false);
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditedContent(post.content);
-  };
-
-  const handleSubmitEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEditSubmit = async () => {
+    if (!user) return;
     
-    if (!user || !canEditPost || !editedContent.trim()) return;
+    // Check if user is the author
+    if (user.uid !== post.authorId) {
+      setError('You do not have permission to edit this post');
+      showToast('You do not have permission to edit this post', 'error');
+      return;
+    }
     
-    setIsSubmittingEdit(true);
+    if (!editedContent.trim()) {
+      setError('Post content cannot be empty');
+      return;
+    }
+    
+    setError(null);
     
     try {
-      const now = new Date();
       const postRef = doc(db, 'posts', post.id);
       await updateDoc(postRef, {
         content: editedContent.trim(),
-        lastEdited: now,
+        lastEdited: Timestamp.fromDate(new Date())
       });
       
-      // Update local state
-      post.content = editedContent.trim();
-      post.lastEdited = now;
-      
-      // Notify parent component about edit
-      if (onPostEdited) {
-        onPostEdited(post.id, editedContent.trim(), now);
-      }
-      
+      showToast('Post updated successfully', 'success');
       setIsEditing(false);
     } catch (error) {
       console.error('Error updating post:', error);
-      alert('Failed to update post. Please try again.');
-    } finally {
-      setIsSubmittingEdit(false);
+      setError('Failed to update post');
+      showToast('Failed to update post', 'error');
     }
   };
 
-  // Function to add a reply to a comment
-  const handleAddReply = async (parentCommentId: string, newReply: Comment) => {
-    if (!user) return;
-    
-    try {
-      // Create a deep copy of the current comments array
-      const updatedComments = JSON.parse(JSON.stringify(post.comments)) as Comment[];
-      
-      // Helper function to recursively find and update the parent comment
-      const addReplyToComment = (comments: Comment[], parentId: string, reply: Comment): boolean => {
-        for (let i = 0; i < comments.length; i++) {
-          const comment = comments[i];
-          
-          if (comment.id === parentId) {
-            // Initialize replies array if it doesn't exist
-            if (!comment.replies) {
-              comment.replies = [];
-            }
-            // Add the reply to this comment
-            (comment.replies as Comment[]).push(reply);
-            return true;
-          }
-          
-          // Check nested replies if they exist
-          if (comment.replies && comment.replies.length > 0) {
-            const found = addReplyToComment(comment.replies as Comment[], parentId, reply);
-            if (found) return true;
-          }
-        }
-        return false;
-      };
-      
-      // Add the reply to the appropriate parent comment
-      addReplyToComment(updatedComments, parentCommentId, newReply);
-      
-      // Update Firestore with the new comments structure
-      const postRef = doc(db, 'posts', post.id);
-      await updateDoc(postRef, {
-        comments: updatedComments
-      });
-      
-      // Update local state
-      post.comments = updatedComments;
-      
-    } catch (error) {
-      console.error('Error adding reply:', error);
-    }
-  };
-
-  const handleCommentDeleted = async (commentId: string) => {
-    // Update the local state to reflect the deleted comment
-    // This is already handled by the markCommentAsDeleted function
-    // We're just forcing a re-render here by toggling the forceUpdate state
-    setForceUpdate(prev => !prev);
-    console.log(`Comment ${commentId} has been marked as deleted`);
-  };
+  const isLiked = user ? likes.includes(user.uid) : false;
+  const isAuthor = user ? user.uid === post.authorId : false;
 
   return (
-    <div className={`bg-white rounded-lg shadow-md p-3 sm:p-4 relative ${isDeleting ? 'opacity-60 pointer-events-none' : ''}`}>
-      {isDeleting && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-50 z-10 rounded-lg">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#004C54]"></div>
-        </div>
-      )}
-      <div className="flex items-start space-x-2 sm:space-x-3">
-        <UserAvatar
-          userId={post.authorId}
-          displayName={authorInfo.name}
-          photoURL={authorInfo.photoURL}
-          size={36}
-          className="flex-shrink-0"
-        />
-        
-        <div className="flex-1 min-w-0">
-          <div className="flex justify-between items-start">
-            <div>
-              <UserProfileLink 
-                userId={post.authorId}
-                displayName={authorInfo.name}
-                className="font-medium text-gray-900 text-sm sm:text-base"
+    <motion.div 
+      className="bg-white rounded-lg shadow-md overflow-hidden mb-4"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      {/* Post Header */}
+      <div className="p-3 sm:p-4 border-b border-gray-100 flex justify-between items-center">
+        <div className="flex items-center">
+          {post.authorPhotoURL ? (
+            <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden mr-2 sm:mr-3">
+              <Image 
+                src={post.authorPhotoURL} 
+                alt={post.authorName}
+                fill
+                sizes="(max-width: 768px) 32px, 40px"
+                className="object-cover"
               />
-              <p className="text-xs text-gray-500">
-                {formatTimeAgo(post.createdAt)}
-              </p>
             </div>
+          ) : (
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#004C54] text-white rounded-full flex items-center justify-center mr-2 sm:mr-3">
+              {post.authorName.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div>
+            <h3 className="font-medium text-gray-800 text-sm sm:text-base">{post.authorName}</h3>
+            <p className="text-xs text-gray-500">
+              {formatDate(post.createdAt)}
+              {post.lastEdited && (
+                <span className="ml-1">(edited)</span>
+              )}
+            </p>
+          </div>
+        </div>
+        
+        {/* Post Actions Menu */}
+        {isAuthor && (
+          <div className="relative" ref={menuRef}>
+            <button 
+              onClick={() => setShowMenu(!showMenu)}
+              className="p-1 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
+              aria-label="Post options"
+            >
+              <FaEllipsisV />
+            </button>
             
-            {(isPostCreator || isAdmin) && !post.isDeleted && (
-              <div className="relative" ref={optionsRef}>
-                <button 
-                  className="text-gray-400 hover:text-gray-600 p-1 sm:p-2 rounded-full hover:bg-gray-100 transition-colors"
-                  onClick={() => setShowOptions(!showOptions)}
-                  aria-label="Post options"
+            <AnimatePresence>
+              {showMenu && (
+                <motion.div 
+                  className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 py-1 border border-gray-200"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.1 }}
                 >
-                  <FaEllipsisH size={14} className="sm:hidden" />
-                  <FaEllipsisH size={16} className="hidden sm:block" />
-                </button>
-                
-                {showOptions && (
-                  <div className="absolute right-0 mt-1 w-40 sm:w-48 bg-white rounded-md shadow-lg z-20 py-1 border border-gray-200">
-                    {canEditPost && (
-                      <button
-                        onClick={handleEditPost}
-                        className="w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-700 hover:bg-gray-100 flex items-center transition-colors"
-                      >
-                        <FaEdit className="mr-2" size={12} />
-                        Edit post
-                      </button>
-                    )}
-                    <button
-                      onClick={handleDeletePost}
-                      disabled={isDeleting}
-                      className="w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm text-red-600 hover:bg-gray-100 flex items-center transition-colors"
-                    >
-                      <FaTrash className="mr-2" size={12} />
-                      {isDeleting ? 'Deleting...' : 'Delete post'}
-                    </button>
-                  </div>
-                )}
+                  <button
+                    onClick={() => {
+                      setIsEditing(true);
+                      setShowMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                    disabled={isDeleting}
+                  >
+                    <FaEdit className="mr-2" /> Edit Post
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to delete this post?')) {
+                        handleDeletePost();
+                      }
+                      setShowMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center"
+                    disabled={isDeleting}
+                  >
+                    <FaTrash className="mr-2" /> Delete Post
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
+      
+      {/* Post Content */}
+      <div className="p-3 sm:p-4">
+        {isEditing ? (
+          <div>
+            <textarea
+              value={editedContent}
+              onChange={(e) => setEditedContent(e.target.value)}
+              className="w-full p-2 sm:p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#004C54] min-h-[100px]"
+              placeholder="Edit your post..."
+              autoFocus
+            />
+            
+            {error && (
+              <div className="mt-2 text-red-600 text-sm">
+                {error}
               </div>
             )}
-          </div>
-          
-          {isEditing ? (
-            <form onSubmit={handleSubmitEdit} className="mt-2">
-              <textarea
-                value={editedContent}
-                onChange={(e) => setEditedContent(e.target.value)}
-                className="w-full p-2 border rounded-md text-sm focus:ring-[#004C54] focus:border-[#004C54] min-h-[100px]"
-                placeholder="What's on your mind?"
-              />
-              <div className="flex justify-end space-x-2 mt-2">
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  className="px-3 py-1 border border-gray-300 text-gray-700 text-xs sm:text-sm rounded-md hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!editedContent.trim() || isSubmittingEdit}
-                  className="px-3 py-1 bg-[#004C54] text-white text-xs sm:text-sm rounded-md hover:bg-[#003940] disabled:opacity-50"
-                >
-                  {isSubmittingEdit ? 'Saving...' : 'Save changes'}
-                </button>
-              </div>
-            </form>
-          ) : (
-            <>
-              <p className={`mt-2 ${post.isDeleted ? 'text-gray-500 italic' : 'text-gray-700'} whitespace-pre-wrap break-words text-sm sm:text-base`}>
-                {post.content}
-              </p>
-              {post.lastEdited && !post.isDeleted && (
-                <p className="text-xs text-gray-400 mt-1 italic">
-                  Edited {formatTimeAgo(post.lastEdited)}
-                </p>
-              )}
-              {post.isDeleted && (
-                <p className="text-xs text-gray-400 mt-1 italic">
-                  Deleted {post.lastEdited ? formatTimeAgo(post.lastEdited) : ''}
-                </p>
-              )}
-            </>
-          )}
-          
-          <div className="mt-3 sm:mt-4 flex items-center space-x-4">
-            <button 
-              onClick={handleLike}
-              disabled={post.isDeleted}
-              className={`flex items-center space-x-1 ${isLiked ? 'text-red-500' : 'text-gray-500'} hover:text-red-500 ${post.isDeleted ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              {isLiked ? <FaHeart size={14} className="sm:text-base" /> : <FaRegHeart size={14} className="sm:text-base" />}
-              <span className="text-xs sm:text-sm">{likeCount}</span>
-            </button>
             
-            <button 
-              onClick={() => !post.isDeleted && setShowComments(!showComments)}
-              disabled={post.isDeleted}
-              className={`flex items-center space-x-1 text-gray-500 hover:text-gray-700 ${post.isDeleted ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <FaComment size={14} className="sm:text-base" />
-              <span className="text-xs sm:text-sm">{post.comments.length}</span>
-            </button>
-          </div>
-          
-          {showComments && (
-            <div className="mt-3 sm:mt-4 space-y-3 sm:space-y-4">
-              <h3 className="text-xs sm:text-sm font-medium text-gray-700">
-                {post.comments.length > 0 ? `Comments (${post.comments.length})` : 'No comments yet'}
-              </h3>
-              
-              {post.comments.length > 0 && (
-                <div className="space-y-3">
-                  {post.comments.map(comment => (
-                    <CommentItem 
-                      key={comment.id} 
-                      comment={comment} 
-                      postId={post.id}
-                      onReplyAdded={handleAddReply}
-                      onCommentDeleted={handleCommentDeleted}
-                    />
-                  ))}
-                </div>
-              )}
-              
-              {!post.isDeleted && (
-                <form onSubmit={handleSubmitComment} className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Add a comment..."
-                    className="flex-1 p-2 border rounded-md text-xs sm:text-sm focus:ring-[#004C54] focus:border-[#004C54]"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!commentText.trim() || isSubmittingComment}
-                    className="px-2 sm:px-3 py-1 sm:py-2 bg-[#004C54] text-white text-xs sm:text-sm rounded-md hover:bg-[#003940] disabled:opacity-50 whitespace-nowrap"
-                  >
-                    {isSubmittingComment ? 'Sending...' : 'Send'}
-                  </button>
-                </form>
-              )}
+            <div className="mt-3 flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditedContent(post.content);
+                  setError(null);
+                }}
+                className="px-2 sm:px-3 py-1 text-xs sm:text-sm border border-gray-300 rounded-md hover:bg-gray-50 flex items-center"
+              >
+                <FaTimes className="mr-1" /> Cancel
+              </button>
+              <button
+                onClick={handleEditSubmit}
+                className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-[#004C54] text-white rounded-md hover:bg-[#003940] flex items-center"
+              >
+                <FaCheck className="mr-1" /> Save
+              </button>
             </div>
-          )}
+          </div>
+        ) : (
+          <p className="text-gray-800 whitespace-pre-wrap text-sm sm:text-base">{post.content}</p>
+        )}
+        
+        {post.imageUrl && (
+          <div className="mt-3 rounded-lg overflow-hidden">
+            <Image 
+              src={post.imageUrl} 
+              alt="Post image"
+              width={500}
+              height={300}
+              className="w-full object-cover"
+            />
+          </div>
+        )}
+      </div>
+      
+      {/* Post Actions */}
+      <div className="px-3 sm:px-4 py-2 sm:py-3 border-t border-gray-100 flex items-center justify-between">
+        <div className="flex items-center space-x-3 sm:space-x-4">
+          <button
+            onClick={handleLike}
+            className={`flex items-center space-x-1 ${isLiked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'}`}
+            aria-label={isLiked ? 'Unlike' : 'Like'}
+          >
+            <motion.div
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              {isLiked ? <FaHeart /> : <FaRegHeart />}
+            </motion.div>
+            <span className="text-xs sm:text-sm">{likes.length}</span>
+          </button>
+          
+          <button
+            onClick={() => setShowComments(!showComments)}
+            className="flex items-center space-x-1 text-gray-500 hover:text-[#004C54]"
+            aria-label={showComments ? 'Hide comments' : 'Show comments'}
+          >
+            <motion.div
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              <FaComment />
+            </motion.div>
+            <span className="text-xs sm:text-sm">{comments.length}</span>
+          </button>
+          
+          <button
+            onClick={handleShare}
+            className="flex items-center space-x-1 text-gray-500 hover:text-[#004C54]"
+            aria-label="Share post"
+          >
+            <motion.div
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              <FaShare />
+            </motion.div>
+            <span className="hidden sm:inline text-xs sm:text-sm">Share</span>
+          </button>
+        </div>
+        
+        <div className="text-xs text-gray-500 hidden sm:block">
+          {comments.length} {comments.length === 1 ? 'comment' : 'comments'}
         </div>
       </div>
-    </div>
+      
+      {/* Comments Section */}
+      <AnimatePresence>
+        {showComments && (
+          <motion.div 
+            className="border-t border-gray-100 bg-gray-50"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            {/* Comment List */}
+            <div className="px-3 sm:px-4 py-2 sm:py-3 max-h-[250px] sm:max-h-[300px] overflow-y-auto">
+              {comments.length > 0 ? (
+                comments.map((comment) => (
+                  <div key={comment.id} className="mb-3 last:mb-0">
+                    <div className="flex items-start">
+                      {comment.authorPhotoURL ? (
+                        <div className="relative w-6 h-6 sm:w-8 sm:h-8 rounded-full overflow-hidden mr-2 flex-shrink-0">
+                          <Image 
+                            src={comment.authorPhotoURL} 
+                            alt={comment.authorName}
+                            fill
+                            sizes="(max-width: 768px) 24px, 32px"
+                            className="object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-[#004C54] text-white rounded-full flex items-center justify-center mr-2 flex-shrink-0 text-xs sm:text-sm">
+                          {comment.authorName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="bg-white p-2 rounded-lg shadow-sm flex-1">
+                        <div className="flex justify-between items-center mb-1 flex-wrap">
+                          <h4 className="text-xs sm:text-sm font-medium text-gray-800">{comment.authorName}</h4>
+                          <span className="text-xs text-gray-500">{formatDate(comment.createdAt)}</span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-gray-700">{comment.content}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-center text-gray-500 py-4 text-xs sm:text-sm">No comments yet. Be the first to comment!</p>
+              )}
+            </div>
+            
+            {/* Comment Form */}
+            {user && (
+              <form onSubmit={handleCommentSubmit} className="p-2 sm:p-3 border-t border-gray-200">
+                <div className="flex items-start">
+                  {user.photoURL ? (
+                    <div className="relative w-6 h-6 sm:w-8 sm:h-8 rounded-full overflow-hidden mr-2 flex-shrink-0">
+                      <Image 
+                        src={user.photoURL} 
+                        alt={user.displayName || 'User'}
+                        fill
+                        sizes="(max-width: 768px) 24px, 32px"
+                        className="object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-6 h-6 sm:w-8 sm:h-8 bg-[#004C54] text-white rounded-full flex items-center justify-center mr-2 flex-shrink-0 text-xs sm:text-sm">
+                      {(user.displayName || 'A').charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <textarea
+                      ref={commentInputRef}
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Write a comment..."
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#004C54] text-xs sm:text-sm resize-none"
+                      rows={isMobile ? 1 : 2}
+                      disabled={isSubmittingComment}
+                    />
+                    
+                    {error && (
+                      <div className="mt-1 text-red-600 text-xs">
+                        {error}
+                      </div>
+                    )}
+                    
+                    <div className="mt-2 flex justify-end">
+                      <button
+                        type="submit"
+                        className={`px-2 sm:px-3 py-1 text-xs sm:text-sm rounded-lg text-white ${
+                          isSubmittingComment || !newComment.trim()
+                            ? 'bg-gray-400 cursor-not-allowed' 
+                            : 'bg-[#004C54] hover:bg-[#003940]'
+                        }`}
+                        disabled={isSubmittingComment || !newComment.trim()}
+                      >
+                        {isSubmittingComment ? 'Posting...' : 'Post Comment'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };
 

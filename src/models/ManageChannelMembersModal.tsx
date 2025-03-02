@@ -4,7 +4,7 @@ import { FaTimes, FaUserShield, FaUserMinus, FaSearch, FaEllipsisV, FaTrash, FaV
 import Image from 'next/image';
 import { Channel } from '@/types/Channel';
 import { useAuth } from '@/lib/context/AuthContext';
-import { doc, updateDoc, arrayUnion, arrayRemove, getDoc, collection, addDoc, FieldValue } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useToast } from '../layouts/Toast';
 
@@ -13,14 +13,6 @@ interface User {
   displayName: string;
   email: string;
   photoURL?: string;
-  lastActive?: Date;
-  status: string;
-  phoneNumber?: string;
-  createdAt?: Date;
-  bio?: string;
-  location?: string;
-  socialLinks?: Record<string, string>;
-  role: string;
 }
 
 interface ManageChannelMembersModalProps {
@@ -58,36 +50,32 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
       setError('');
       
       try {
-        // Fetch complete user data for each member
+        // In a real app, you would fetch user details for each member ID
+        // This is a simplified version that creates placeholder user objects
         const memberUsers: User[] = await Promise.all(
           channel.members.map(async (memberId) => {
-            const userDoc = await getDoc(doc(db, 'users', memberId));
-            if (userDoc.exists()) {
-              const userData = userDoc.data();
-              // Always show complete user information
-              return {
-                uid: memberId,
-                displayName: userData.fullName || userData.displayName || 'Unknown User',
-                email: userData.email,
-                photoURL: userData.photoURL,
-                lastActive: userData.lastActive?.toDate() || null,
-                status: userData.status || 'offline',
-                phoneNumber: userData.phoneNumber,
-                createdAt: userData.createdAt?.toDate(),
-                bio: userData.bio,
-                location: userData.location,
-                socialLinks: userData.socialLinks || {},
-                role: channel.admins?.includes(memberId) ? 'admin' : 
-                      (channel.createdBy === memberId ? 'creator' : 'member')
-              };
+            // Try to fetch real user data from Firestore
+            try {
+              const userDoc = await getDoc(doc(db, 'users', memberId));
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                return {
+                  uid: memberId,
+                  displayName: userData.displayName || `User ${memberId.substring(0, 5)}`,
+                  email: userData.email || `user-${memberId.substring(0, 5)}@example.com`,
+                  photoURL: userData.photoURL
+                };
+              }
+            } catch (error) {
+              console.error('Error fetching user data:', error);
             }
+            
+            // Fallback to placeholder data
             return {
               uid: memberId,
-              displayName: 'Deleted Account',
-              email: 'Account no longer exists',
-              photoURL: '/default-avatar.png',
-              status: 'deleted',
-              role: 'deleted'
+              displayName: `User ${memberId.substring(0, 5)}`,
+              email: `user-${memberId.substring(0, 5)}@example.com`,
+              photoURL: undefined
             };
           })
         );
@@ -95,14 +83,14 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
         setMembers(memberUsers);
       } catch (error) {
         console.error('Error fetching members:', error);
-        setError('Failed to load member information');
+        setError('Failed to load members');
       } finally {
         setIsLoading(false);
       }
     };
     
     fetchMembers();
-  }, [channel.members, channel.admins, channel.createdBy]);
+  }, [channel.members]);
 
   const handleToggleAdmin = async (userId: string) => {
     if (!user) return;
@@ -115,12 +103,12 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
     
     try {
       const channelRef = doc(db, 'channels', channel.id);
-      const updateData: { [key: string]: FieldValue } = {};
       
       if (isUserAdmin(userId)) {
         // Remove admin role
-        updateData.admins = arrayRemove(userId);
-        await updateDoc(channelRef, updateData);
+        await updateDoc(channelRef, {
+          admins: arrayRemove(userId)
+        });
         
         // Update local state
         const updatedChannel = {
@@ -131,8 +119,9 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
         showToast('Admin role removed', 'success');
       } else {
         // Add admin role
-        updateData.admins = arrayUnion(userId);
-        await updateDoc(channelRef, updateData);
+        await updateDoc(channelRef, {
+          admins: arrayUnion(userId)
+        });
         
         // Update local state
         const updatedChannel = {
@@ -160,17 +149,18 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
     
     try {
       const channelRef = doc(db, 'channels', channel.id);
-      const updateData: { [key: string]: FieldValue } = {};
       
       // Remove from members
-      updateData.members = arrayRemove(userId);
+      await updateDoc(channelRef, {
+        members: arrayRemove(userId)
+      });
       
       // If they were an admin, remove from admins too
       if (isUserAdmin(userId)) {
-        updateData.admins = arrayRemove(userId);
+        await updateDoc(channelRef, {
+          admins: arrayRemove(userId)
+        });
       }
-      
-      await updateDoc(channelRef, updateData);
       
       // Update local state
       const updatedChannel = {
@@ -198,17 +188,11 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
     
     try {
       const channelRef = doc(db, 'channels', channel.id);
-      const updateData: { 
-        deleted: boolean; 
-        deletedAt: Date; 
-        deletedBy: string;
-      } = {
+      await updateDoc(channelRef, { 
         deleted: true,
         deletedAt: new Date(),
         deletedBy: user.uid
-      };
-      
-      await updateDoc(channelRef, updateData);
+      });
       
       // In a real app, you might want to actually delete the document
       // or move it to an archive collection
@@ -231,19 +215,20 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
     
     try {
       const channelRef = doc(db, 'channels', channel.id);
-      const updateData: { [key: string]: FieldValue } = {};
       
       if (isMuted) {
         // Unmute user
-        updateData.mutedUsers = arrayRemove(userId);
+        await updateDoc(channelRef, {
+          mutedUsers: arrayRemove(userId)
+        });
+        showToast('User unmuted', 'success');
       } else {
         // Mute user
-        updateData.mutedUsers = arrayUnion(userId);
+        await updateDoc(channelRef, {
+          mutedUsers: arrayUnion(userId)
+        });
+        showToast('User muted', 'success');
       }
-      
-      await updateDoc(channelRef, updateData);
-      
-      showToast(isMuted ? 'User unmuted' : 'User muted', 'success');
       
       // Update local state
       const updatedChannel = {
@@ -260,45 +245,24 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
     }
   };
   
-  const handleBanUser = async (userId: string, isBanned: boolean, reason: string = '') => {
+  const handleBanUser = async (userId: string, isBanned: boolean) => {
     if (!user || !currentUserIsAdmin) return;
     
     try {
       const channelRef = doc(db, 'channels', channel.id);
-      const updateData: { [key: string]: FieldValue } = {};
       
       if (isBanned) {
         // Unban user
-        updateData.bannedUsers = arrayRemove(userId);
-        await updateDoc(channelRef, updateData);
+        await updateDoc(channelRef, {
+          bannedUsers: arrayRemove(userId)
+        });
         showToast('User unbanned', 'success');
       } else {
         // Ban user and remove from members
-        updateData.bannedUsers = arrayUnion(userId);
-        updateData.members = arrayRemove(userId);
-        await updateDoc(channelRef, updateData);
-        
-        // Record ban history in a subcollection
-        try {
-          const banHistoryRef = collection(db, 'channels', channel.id, 'banHistory');
-          await addDoc(banHistoryRef, {
-            userId: userId,
-            bannedBy: user.uid,
-            bannedAt: new Date(),
-            reason: reason || 'No reason provided'
-          });
-        } catch (historyError: unknown) {
-          console.error('Error recording ban history:', historyError);
-          // Check if it's a permission error
-          if (typeof historyError === 'object' && historyError !== null && 'code' in historyError && historyError.code === 'permission-denied') {
-            showToast('User banned, but ban history could not be recorded due to permission settings', 'warning');
-          } else {
-            // For other errors, just log them
-            console.error('Failed to record ban history:', historyError);
-          }
-          // Continue even if recording history fails
-        }
-        
+        await updateDoc(channelRef, {
+          bannedUsers: arrayUnion(userId),
+          members: arrayRemove(userId)
+        });
         showToast('User banned', 'success');
       }
       
@@ -339,11 +303,11 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
-        <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white z-10">
-          <h2 className="text-lg font-semibold text-[#004C54]">
+        <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-gradient-to-r from-[#003940] to-[#046A38] text-white z-10">
+          <h2 className="text-lg font-semibold">
             {currentUserIsAdmin ? 'Manage Channel Members' : 'Channel Members'}
           </h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+          <button onClick={onClose} className="text-white hover:text-[#A5ACAF] transition-colors">
             <FaTimes />
           </button>
         </div>
@@ -482,7 +446,7 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
           <div className="flex flex-col space-y-2">
             <button
               onClick={onClose}
-              className="w-full px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940]"
+              className="w-full px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940] transition-colors"
             >
               Done
             </button>
@@ -490,7 +454,7 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
             {currentUserIsAdmin && (
               <button
                 onClick={() => setShowDeleteConfirm(true)}
-                className="w-full px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center justify-center"
+                className="w-full px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center justify-center transition-colors"
               >
                 <FaTrash className="mr-2" />
                 Delete Channel
@@ -522,14 +486,14 @@ const ManageChannelMembersModal: React.FC<ManageChannelMembersModalProps> = ({
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                 disabled={deleteLoading}
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteChannel}
-                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center"
+                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center transition-colors"
                 disabled={deleteLoading}
               >
                 {deleteLoading ? 'Deleting...' : 'Delete Channel'}
@@ -550,7 +514,7 @@ interface MemberItemProps {
   onToggleAdmin: () => void;
   onRemove: () => void;
   onMute?: (userId: string, isMuted: boolean) => void;
-  onBan?: (userId: string, isBanned: boolean, reason?: string) => void;
+  onBan?: (userId: string, isBanned: boolean) => void;
   isMuted?: boolean;
   isBanned?: boolean;
 }
@@ -567,252 +531,145 @@ const MemberItem: React.FC<MemberItemProps> = ({
   isMuted = false,
   isBanned = false
 }) => {
-  const [showOptions, setShowOptions] = useState(false);
-  const [showDetails, setShowDetails] = useState(false);
-  const [showBanDialog, setShowBanDialog] = useState(false);
-  const [banReason, setBanReason] = useState('');
-  const optionsRef = useRef<HTMLDivElement>(null);
+  const [showActions, setShowActions] = useState(false);
+  const actionsRef = useRef<HTMLDivElement>(null);
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (actionsRef.current && !actionsRef.current.contains(event.target as Node)) {
+        setShowActions(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   
   return (
-    <div className="flex flex-col p-3 hover:bg-gray-50 rounded-lg transition-colors">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3 flex-1">
-          <div className="relative">
-            <div className="w-12 h-12 rounded-full overflow-hidden">
-              <Image
-                src={member.photoURL || '/default-avatar.png'}
-                alt={member.displayName}
-                width={48}
-                height={48}
-                className="object-cover w-full h-full"
-                style={{ objectFit: 'cover', objectPosition: 'center' }}
-              />
-            </div>
-            <div className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-white
-              ${member.status === 'online' ? 'bg-green-500' : 
-                member.status === 'offline' ? 'bg-gray-400' :
-                member.status === 'deleted' ? 'bg-red-500' : 'bg-yellow-500'}`}
+    <li className="flex items-center justify-between p-2 rounded-md hover:bg-gray-50 transition-colors">
+      <div className="flex items-center">
+        {member.photoURL ? (
+          <div className="relative w-8 h-8 rounded-full overflow-hidden mr-3">
+            <Image
+              src={member.photoURL}
+              alt={member.displayName}
+              fill
+              sizes="32px"
+              className="object-cover"
             />
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center flex-wrap gap-2">
-              <h4 className="font-medium text-gray-900">
-                {member.displayName}
-              </h4>
-              {isCreator && (
-                <span className="px-2 py-0.5 bg-[#004C54] text-white text-xs rounded-full">
-                  Creator
-                </span>
-              )}
-              {isAdmin && !isCreator && (
-                <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
-                  Admin
-                </span>
-              )}
-              {isMuted && (
-                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded-full">
-                  Muted
-                </span>
-              )}
-              {isBanned && (
-                <span className="px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded-full">
-                  Banned
-                </span>
-              )}
-            </div>
-            <p className="text-sm text-gray-600">{member.email}</p>
-            {member.phoneNumber && (
-              <p className="text-sm text-gray-500">{member.phoneNumber}</p>
-            )}
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-gray-400">
-                {member.status === 'online' ? 'Online' : 
-                 member.status === 'offline' ? 'Offline' : 
-                 member.status === 'away' ? 'Away' : 'Status unknown'}
-              </span>
-              {member.lastActive && (
-                <span className="text-xs text-gray-400">
-                  • Last active: {new Date(member.lastActive).toLocaleString()}
-                </span>
-              )}
-              <button
-                onClick={() => setShowDetails(!showDetails)}
-                className="text-xs text-blue-600 hover:underline"
-              >
-                {showDetails ? 'Less info' : 'More info'}
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        {currentUserIsAdmin && !isCreator && (
-          <div className="relative" ref={optionsRef}>
-            <button
-              onClick={() => setShowOptions(!showOptions)}
-              className="p-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200"
-              aria-label="Member actions"
-            >
-              <FaEllipsisV size={14} />
-            </button>
-            
-            {showOptions && (
-              <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 py-1 border border-gray-200">
-                <button
-                  onClick={() => {
-                    onToggleAdmin();
-                    setShowOptions(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                >
-                  <FaUserShield className="mr-2" size={14} />
-                  {isAdmin ? 'Remove Admin' : 'Make Admin'}
-                </button>
-                
-                <button
-                  onClick={() => {
-                    if (onMute) onMute(member.uid, isMuted);
-                    setShowOptions(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                >
-                  {isMuted ? (
-                    <>
-                      <FaVolumeUp className="mr-2" size={14} />
-                      Unmute User
-                    </>
-                  ) : (
-                    <>
-                      <FaVolumeMute className="mr-2" size={14} />
-                      Mute User
-                    </>
-                  )}
-                </button>
-                
-                <button
-                  onClick={() => {
-                    if (onBan) {
-                      if (isBanned) {
-                        onBan(member.uid, isBanned);
-                      } else {
-                        setShowBanDialog(true);
-                      }
-                    }
-                    setShowOptions(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                >
-                  {isBanned ? (
-                    <>
-                      <FaUserSlash className="mr-2" size={14} />
-                      Unban User
-                    </>
-                  ) : (
-                    <>
-                      <FaBan className="mr-2" size={14} />
-                      Ban User
-                    </>
-                  )}
-                </button>
-                
-                <button
-                  onClick={() => {
-                    if (onRemove) onRemove();
-                    setShowOptions(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
-                >
-                  <FaUserMinus className="mr-2" size={14} />
-                  Remove from Channel
-                </button>
-              </div>
-            )}
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-[#004C54] text-white flex items-center justify-center mr-3">
+            <span className="font-medium">
+              {member.displayName.charAt(0).toUpperCase()}
+            </span>
           </div>
         )}
-      </div>
-
-      {showDetails && (
-        <div className="mt-3 pl-15 border-t pt-3 text-sm">
-          {member.bio && (
-            <p className="text-gray-600 mb-2">
-              <strong>Bio:</strong> {member.bio}
-            </p>
-          )}
-          {member.location && (
-            <p className="text-gray-600 mb-2">
-              <strong>Location:</strong> {member.location}
-            </p>
-          )}
-          {member.createdAt && (
-            <p className="text-gray-600 mb-2">
-              <strong>Joined:</strong> {member.createdAt.toLocaleDateString()}
-            </p>
-          )}
-          {member.socialLinks && Object.keys(member.socialLinks).length > 0 && (
-            <div className="text-gray-600">
-              <strong>Social Links:</strong>
-              <ul className="ml-4 mt-1">
-                {Object.entries(member.socialLinks).map(([platform, url]) => (
-                  <li key={platform}>
-                    <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                      {platform}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+        
+        <div>
+          <div className="font-medium text-gray-800 flex items-center">
+            {member.displayName}
+            {isAdmin && (
+              <span className="ml-1 text-xs bg-[#004C54] text-white px-1.5 py-0.5 rounded">
+                Admin
+              </span>
+            )}
+            {isCreator && (
+              <span className="ml-1 text-xs bg-[#046A38] text-white px-1.5 py-0.5 rounded">
+                Creator
+              </span>
+            )}
+            {isMuted && (
+              <span className="ml-1 text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded flex items-center">
+                <FaVolumeMute className="mr-1" size={10} />
+                Muted
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-gray-500">{member.email}</div>
         </div>
-      )}
-
-      {/* Ban User Dialog */}
-      {showBanDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[70] p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <div className="flex items-center mb-4 text-red-500">
-              <FaBan size={24} className="mr-3" />
-              <h3 className="text-lg font-semibold">Ban User</h3>
-            </div>
-            
-            <p className="mb-4 text-gray-700">
-              Are you sure you want to ban <strong>{member.displayName}</strong> from this channel?
-            </p>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Reason for ban (optional):
-              </label>
-              <textarea
-                value={banReason}
-                onChange={(e) => setBanReason(e.target.value)}
-                className="w-full border border-gray-300 rounded-md p-2 text-sm"
-                rows={3}
-                placeholder="Enter reason for banning this user..."
-              />
-            </div>
-            
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowBanDialog(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                Cancel
-              </button>
+      </div>
+      
+      {currentUserIsAdmin && !isCreator && (
+        <div className="relative" ref={actionsRef}>
+          <button
+            onClick={() => setShowActions(!showActions)}
+            className="p-1.5 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+            aria-label="Member actions"
+          >
+            <FaEllipsisV size={14} />
+          </button>
+          
+          {showActions && (
+            <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 py-1 border border-gray-200">
               <button
                 onClick={() => {
-                  if (onBan) onBan(member.uid, false, banReason);
-                  setShowBanDialog(false);
+                  onToggleAdmin();
+                  setShowActions(false);
                 }}
-                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 flex items-center"
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center"
               >
-                <FaBan className="mr-2" size={14} />
-                Ban User
+                <FaUserShield className="mr-2" size={14} />
+                {isAdmin ? 'Remove Admin' : 'Make Admin'}
+              </button>
+              
+              <button
+                onClick={() => {
+                  if (onMute) onMute(member.uid, isMuted);
+                  setShowActions(false);
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center"
+              >
+                {isMuted ? (
+                  <>
+                    <FaVolumeUp className="mr-2" size={14} />
+                    Unmute User
+                  </>
+                ) : (
+                  <>
+                    <FaVolumeMute className="mr-2" size={14} />
+                    Mute User
+                  </>
+                )}
+              </button>
+              
+              <button
+                onClick={() => {
+                  if (onBan) onBan(member.uid, isBanned);
+                  setShowActions(false);
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center"
+              >
+                {isBanned ? (
+                  <>
+                    <FaUserSlash className="mr-2" size={14} />
+                    Unban User
+                  </>
+                ) : (
+                  <>
+                    <FaBan className="mr-2" size={14} />
+                    Ban User
+                  </>
+                )}
+              </button>
+              
+              <button
+                onClick={() => {
+                  if (onRemove) onRemove();
+                  setShowActions(false);
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center"
+              >
+                <FaUserMinus className="mr-2" size={14} />
+                Remove from Channel
               </button>
             </div>
-          </div>
+          )}
         </div>
       )}
-    </div>
+    </li>
   );
 };
 
-export default ManageChannelMembersModal; 
+export { ManageChannelMembersModal };
