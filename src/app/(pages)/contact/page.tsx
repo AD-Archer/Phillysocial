@@ -50,15 +50,6 @@ export default function Contact() {
   // Team members data with updated images
   const teamMembers = [
     {
-      name: "Mohomed Souare",
-      role: "Co-Founder, and Key Developer",
-      bio: "Mohamed brings technical expertise and a passion for creating digital tools that solve real community problems.",
-      image: "https://2ad5tl9u0f.ufs.sh/f/mVlrptEB35zZWRSjr6oGkhZc0HqtLiKVx6UwNY9rFfzj8DgC",
-      email: "placeholder@email.com",
-      github: "https://github.com/MO-fr",
-      linkedin: "https://www.linkedin.com/in/mohamed-souare-8a61a2259/",
-    },
-    {
       name: "Antonio Archer",
       role: "Co-Founder, and Lead Developer",
       bio: "Antonio leads our development team with a focus on creating intuitive, accessible interfaces that connect Philadelphians.",
@@ -68,11 +59,20 @@ export default function Contact() {
       linkedin: "https://www.linkedin.com/in/antonio-archer/",
     },
     {
+      name: "Mohomed Souare",
+      role: "Co-Founder, and Key Developer",
+      bio: "Mohamed brings technical expertise and a passion for creating digital tools that solve real community problems.",
+      image: "https://2ad5tl9u0f.ufs.sh/f/mVlrptEB35zZWRSjr6oGkhZc0HqtLiKVx6UwNY9rFfzj8DgC",
+      email: "msouaremay31@gmail.com",
+      github: "https://github.com/MO-fr",
+      linkedin: "https://www.linkedin.com/in/mohamed-souare-8a61a2259/",
+    },
+    {
       name: "Sianni Strickland",
       role: "Co-Founder, and Managing Lead",
       bio: "Sianni oversees operations and community engagement, ensuring Philly Social remains focused on serving the needs of our city.",
       image: "https://2ad5tl9u0f.ufs.sh/f/mVlrptEB35zZRu9boXVrI1y2gHJMVozdtwNDuO6Ev3qPksnc",
-      email: "placeholder@email.com",
+      email: "Siannistrickland@gmail.com",
       github: "https://github.com/SunnySianni",
       linkedin: "https://www.linkedin.com/in/sianni-strickland-934059284//",
     },
@@ -132,17 +132,17 @@ export default function Contact() {
           >
             Meet Our Team
           </motion.h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             {teamMembers.map((member, index) => (
               <motion.div
                 key={index}
-                className="group bg-black/30 backdrop-blur-md rounded-xl p-8 flex flex-col items-center text-center transform transition-all duration-300 hover:scale-105 hover:bg-black/40"
+                className="group bg-black/30 backdrop-blur-md rounded-xl p-6 flex flex-col items-center text-center transform transition-all duration-300 hover:scale-105 hover:bg-black/40 aspect-square"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
               >
-                <div className="relative w-48 h-48 mb-6 rounded-full overflow-hidden border-4 border-[#A5ACAF] shadow-xl group-hover:border-white transition-colors duration-300">
+                <div className="relative w-24 h-24 mb-4 rounded-full overflow-hidden border-4 border-[#A5ACAF] shadow-xl group-hover:border-white transition-colors duration-300">
                   {member.image && member.image.startsWith('http') ? (
                     <Image 
                       src={member.image} 
@@ -159,15 +159,17 @@ export default function Contact() {
                     />
                   )}
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-2">{member.name}</h3>
-                <p className="text-[#A5ACAF] text-lg mb-4">{member.role}</p>
-                <p className="text-white mb-6">{member.bio}</p>
-                <div className="flex flex-col space-y-2 items-center mb-4">
+                <h3 className="text-xl font-bold text-white mb-1">{member.name}</h3>
+                <p className="text-[#A5ACAF] text-sm mb-2">{member.role}</p>
+                <p className="text-white text-sm mb-3 line-clamp-3">{member.bio}</p>
+                <div className="w-full bg-black/20 rounded-lg p-3 mb-3 mt-auto">
+                  <h4 className="text-sm font-semibold text-white mb-1">Contact</h4>
                   <a 
                     href={`mailto:${member.email}`} 
-                    className="text-white flex items-center hover:text-[#A5ACAF] transition-colors"
+                    className="text-white flex items-center hover:text-[#A5ACAF] transition-colors break-all"
                   >
-                    <FaEnvelope className="mr-2" /> {member.email}
+                    <FaEnvelope className="min-w-[14px] mr-2" /> 
+                    <span className="text-xs">{member.email}</span>
                   </a>
                 </div>
                 <div className="flex space-x-6">
@@ -175,7 +177,7 @@ export default function Contact() {
                     href={member.github} 
                     target="_blank" 
                     rel="noopener noreferrer" 
-                    className="text-[#A5ACAF] hover:text-white transition-colors duration-300 font-medium"
+                    className="text-[#A5ACAF] hover:text-white transition-colors duration-300 font-medium text-sm"
                   >
                     GitHub
                   </a>
@@ -183,7 +185,7 @@ export default function Contact() {
                     href={member.linkedin} 
                     target="_blank" 
                     rel="noopener noreferrer" 
-                    className="text-[#A5ACAF] hover:text-white transition-colors duration-300 font-medium"
+                    className="text-[#A5ACAF] hover:text-white transition-colors duration-300 font-medium text-sm"
                   >
                     LinkedIn
                   </a>
