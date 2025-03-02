@@ -349,7 +349,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     />
                     {showInfoTooltip && (
                       <div className="absolute z-50 w-72 p-3 bg-gray-800 text-white text-xs rounded shadow-lg -translate-x-1/2 left-1/2 mt-2 after:content-[''] after:absolute after:left-1/2 after:-top-2 after:-translate-x-1/2 after:border-8 after:border-transparent after:border-b-gray-800">
-                        <p>Enter a direct link to an image on the web. The URL should end with an image extension like .jpg, .png, or .gif. Right-click on images online and select "Copy image address" to get a valid URL.</p>
+                        <p>Enter a direct link to an image on the web. The URL should end with an image extension like .jpg, .png, or .gif. Right-click on images online and select &quot;Copy image address&quot; to get a valid URL.</p>
                       </div>
                     )}
                   </div>

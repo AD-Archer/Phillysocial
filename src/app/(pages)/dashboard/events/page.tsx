@@ -31,7 +31,6 @@ export default function Events() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { showToast } = useToast();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [events, setEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
