@@ -130,7 +130,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick }) => {
                 whileTap={{ scale: 0.95 }}
               >
                 <Link 
-                  href="/signup" 
+                  href="/login?mode=signup" 
                   className="flex items-center space-x-2 bg-[#A5ACAF] text-[#003038] px-4 py-2 rounded-lg hover:bg-white transition-colors duration-300 shadow-lg"
                 >
                   <FaUserPlus />

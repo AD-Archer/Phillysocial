@@ -465,7 +465,7 @@ export default function About() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-x-6">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Link
-                  href="/signup"
+                  href="/login?mode=signup"
                   className="rounded-xl bg-[#A5ACAF] px-8 py-4 text-lg font-semibold text-[#003038] shadow-lg hover:bg-white hover:text-[#004C54] transition-all duration-300 focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#004C54]"
                 >
                   Create Account
