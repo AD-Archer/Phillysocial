@@ -83,8 +83,15 @@ const EditChannelModal: React.FC<EditChannelModalProps> = ({
         isPublic,
       };
       
+      // Handle imageUrl properly to avoid undefined values
       if (imageUrl !== channel.imageUrl) {
-        updates.imageUrl = imageUrl.trim() || undefined;
+        const trimmedImageUrl = imageUrl.trim();
+        if (trimmedImageUrl) {
+          updates.imageUrl = trimmedImageUrl;
+        } else {
+          // Use empty string instead of null or undefined for empty values
+          updates.imageUrl = '';
+        }
       }
       
       await updateDoc(channelRef, updates);

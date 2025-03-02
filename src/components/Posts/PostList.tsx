@@ -127,8 +127,8 @@ const PostList: React.FC<PostListProps> = ({ channelId }) => {
                   : new Date()
               })),
               imageUrl: data.imageUrl,
-            });
           });
+        });
           
           // Ensure we have unique posts by ID
           const uniquePosts = Array.from(

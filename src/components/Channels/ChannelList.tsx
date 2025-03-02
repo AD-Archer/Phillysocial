@@ -11,6 +11,16 @@ import CreateChannelModal from '../../models/CreateChannelModal';
 import JoinChannelModal from '../../models/JoinChannelModal';
 import { motion, AnimatePresence } from 'framer-motion';
 
+interface UserDetails {
+  displayName: string;
+  fullName?: string;
+  email: string;
+  photoURL?: string;
+  status: 'online' | 'offline' | 'away' | 'deleted';
+  lastActive?: Date;
+  role: 'member' | 'admin' | 'creator';
+}
+
 interface ChannelListProps {
   onSelectChannel: (channelId: string) => void;
   selectedChannelId: string | null;
@@ -191,6 +201,24 @@ const ChannelList: React.FC<ChannelListProps> = ({ onSelectChannel, selectedChan
     if (!userInA && userInB) return 1;
     return a.name.localeCompare(b.name);
   });
+
+  // Filter channels based on search query
+  const filteredChannels = channels.filter(channel => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase().trim();
+    return (
+      channel.name.toLowerCase().includes(query) || 
+      (channel.description && channel.description.toLowerCase().includes(query))
+    );
+  });
+
+  // Clear search when user selects a channel
+  useEffect(() => {
+    if (selectedChannelId) {
+      setSearchQuery('');
+    }
+  }, [selectedChannelId]);
 
   return (
     <div className="h-full flex flex-col">

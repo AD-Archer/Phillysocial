@@ -26,7 +26,9 @@ export const signUp = async (email: string, password: string) => {
 
 export const signIn = async (email: string, password: string) => {
   try {
+    console.log('Auth - Attempting to sign in with email:', email);
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    console.log('Auth - Sign in successful for user:', userCredential.user.uid);
     return userCredential.user;
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -39,7 +41,9 @@ export const signIn = async (email: string, password: string) => {
 
 export const signInWithGoogle = async () => {
   try {
+    console.log('Auth - Attempting to sign in with Google');
     const result = await signInWithPopup(auth, googleProvider);
+    console.log('Auth - Google sign in successful for user:', result.user.uid);
     return result.user;
   } catch (error: unknown) {
     if (error instanceof Error) {

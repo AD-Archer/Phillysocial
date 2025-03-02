@@ -4,6 +4,7 @@ import { NewsItem, PaginatedNewsResponse, PaginationInfo } from '@/types/News';
 import { FaNewspaper, FaExternalLinkAlt, FaExclamationTriangle, FaChevronLeft, FaChevronRight, FaCheckSquare, FaRegSquare } from 'react-icons/fa';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/lib/context/AuthContext';
 
 interface NewsFeedProps {
   category?: string;
@@ -54,6 +55,7 @@ const NewsFeed: React.FC<NewsFeedProps> = ({
 }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { } = useAuth();
   
   const [news, setNews] = useState<NewsItem[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);

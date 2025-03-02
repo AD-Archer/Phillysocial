@@ -12,6 +12,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
+  // Close profile modal when clicking outside
+  const handleCloseProfile = () => {
+    setIsProfileOpen(false);
+  };
+
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden">
       <Header 

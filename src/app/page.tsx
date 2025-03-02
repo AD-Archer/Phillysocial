@@ -6,7 +6,6 @@ import { FaUsers, FaCalendarAlt, FaMapMarkerAlt, FaComments, FaHandsHelping } fr
 import Image from 'next/image';
 import MainLayout from '@/layouts/MainLayout';
 import { useAuth } from '@/lib/context/AuthContext';
-
 export default function Home() {
   const { user } = useAuth();
   
@@ -308,7 +307,6 @@ export default function Home() {
             </div>
           </div>
         </motion.section>
-
         {/* Call-to-Action Section */}
         <section className="px-4 py-20 sm:px-6 lg:px-8 max-w-7xl mx-auto">
           <motion.div 

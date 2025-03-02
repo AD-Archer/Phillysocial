@@ -70,7 +70,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, onDelete }) => {
   const { showToast } = useToast();
   const menuRef = useRef<HTMLDivElement>(null);
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
-
+  
   // Check if we're on mobile
   useEffect(() => {
     const checkIfMobile = () => {

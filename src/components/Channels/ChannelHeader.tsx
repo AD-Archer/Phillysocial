@@ -40,7 +40,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   };
   
   const isUserMuted = channel?.mutedUsers?.includes(user?.uid || '') || false;
-
   const handleChannelUpdate = (updatedChannel: Channel) => {
     if (onUpdate) {
       onUpdate(updatedChannel);
@@ -130,7 +129,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
                 fill
                 sizes="48px"
                 className="object-cover"
-              />
+                />
             </motion.div>
           ) : (
             <motion.div 
@@ -142,7 +141,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           )}
           
           <div>
-            <h2 className="text-xl font-semibold text-[#004C54] flex items-center">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
               {channel.name}
               {!channel.isPublic && (
                 <FaLock className="ml-2 text-gray-500" size={14} />
@@ -420,6 +419,6 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
       </AnimatePresence>
     </motion.div>
   );
-};
+}
 
 export default ChannelHeader; 

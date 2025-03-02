@@ -4,10 +4,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { signIn, signUp, signInWithGoogle } from '@lib/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
-import MainLayout from '@/layouts/MainLayout';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaUser, FaEnvelope, FaLock, FaGoogle, FaArrowRight, FaArrowLeft } from 'react-icons/fa';
-
 export default function AuthPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -92,11 +90,57 @@ export default function AuthPage() {
           router.push('/dashboard');
         }, 1500);
       }
-    } catch (err: unknown) {
-      setSuccess(false);
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
+
+      const userCredential = await signIn(email, password);
+      console.log('Login successful, user:', userCredential.uid);
+      
+      // Check if user document exists, if not create it
+      try {
+        const userRef = doc(db, 'users', userCredential.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (!userDoc.exists()) {
+          console.log('First time login, creating user document');
+          // Create user document for first-time login
+          await setDoc(userRef, {
+            displayName: userCredential.displayName || '',
+            email: userCredential.email,
+            photoURL: userCredential.photoURL || '',
+            bio: '',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            status: 'online',
+            role: 'member'
+          });
+          
+          // Redirect to profile completion for new users
+          console.log('Redirecting new user to profile completion');
+          await router.push('/profile?complete=required');
+          return;
+        }
+        
+        // Check if profile is complete
+        const userData = userDoc.data();
+        const isProfileComplete = Boolean(
+          userData.displayName && 
+          userData.bio && 
+          userData.bio.trim().length > 0
+        );
+        
+        console.log('Profile complete:', isProfileComplete);
+        
+        // Redirect based on profile completion status
+        if (isProfileComplete) {
+          console.log('Redirecting to dashboard');
+          await router.push('/dashboard');
+        } else {
+          console.log('Redirecting to profile completion');
+          await router.push('/profile?complete=required');
+        }
+      } catch (docError) {
+        console.error('Error checking/creating user document:', docError);
+        throw docError;
+      }
         setError(`Failed to ${isLogin ? 'sign in' : 'sign up'}. Please try again.`);
       }
       setLoading(false);
@@ -108,12 +152,57 @@ export default function AuthPage() {
     setLoading(true);
 
     try {
-      await signInWithGoogle();
-      router.push('/dashboard');
+      const userCredential = await signInWithGoogle();
+      console.log('Google login successful, user:', userCredential.uid);
+      
+      // Check if user document exists, if not create it
+      try {
+        const userRef = doc(db, 'users', userCredential.uid);
+        const userDoc = await getDoc(userRef);
+        
+        if (!userDoc.exists()) {
+          console.log('First time Google login, creating user document');
+          // Create user document for first-time Google login
+          await setDoc(userRef, {
+            displayName: userCredential.displayName || '',
+            email: userCredential.email,
+            photoURL: userCredential.photoURL || '',
+            bio: '',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            status: 'online',
+            role: 'member'
+          });
+        }
+        
+        // Check if profile is complete
+        const userData = userDoc.exists() ? userDoc.data() : { displayName: userCredential.displayName, bio: '' };
+        const isProfileComplete = Boolean(
+          userData.displayName && 
+          userData.bio && 
+          userData.bio.trim().length > 0
+        );
+        
+        console.log('Profile complete:', isProfileComplete);
+        
+        // Redirect based on profile completion status
+        if (isProfileComplete) {
+          console.log('Redirecting to dashboard');
+          await router.push('/dashboard');
+        } else {
+          console.log('Redirecting to profile completion');
+          await router.push('/profile?complete=required');
+        }
+      } catch (docError) {
+        console.error('Error checking/creating user document:', docError);
+        throw docError;
+      }
     } catch (err: unknown) {
       if (err instanceof Error) {
+        console.error('Google login error:', err.message);
         setError(err.message);
       } else {
+        console.error('Unknown Google login error');
         setError('Failed to sign in with Google.');
       }
     } finally {

@@ -6,7 +6,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 
 interface AuthContextType {
-  user: User | null;
+  user: ExtendedUser | null;
   loading: boolean;
   updateUserProfile: (profileData: { displayName?: string; photoURL?: string }) => Promise<void>;
   ensureUserDocument: (user: User) => Promise<void>;
@@ -24,8 +24,9 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<ExtendedUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [firestoreLoading, setFirestoreLoading] = useState(true);
 
   // Function to ensure a user document exists in Firestore
   const ensureUserDocument = async (user: User) => {

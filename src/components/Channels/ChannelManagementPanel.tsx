@@ -3,11 +3,12 @@ import { useState, useEffect } from 'react';
 import { FaUsers, FaCog, FaLock, FaGlobe, FaTrash, FaEdit, FaUserShield, FaRandom, FaCalendarAlt, FaTimes, FaExclamationTriangle, FaSpinner, FaClipboard, FaCheck } from 'react-icons/fa';
 import { Channel } from '@/types/Channel';
 import { useAuth } from '@/lib/context/AuthContext';
-import ManageChannelMembersModal from '../../models/ManageChannelMembersModal';
-import EditChannelModal from '../../models/EditChannelModal';
+import ManageChannelMembersModal from '@/models/ManageChannelMembersModal';
+import EditChannelModal from '@/models/EditChannelModal';
+import BannedUsersModal from '@/models/BannedUsersModal';
 import { doc, updateDoc, deleteDoc, } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
-import { useToast } from '../../layouts/Toast';
+import { useToast } from '@/layouts/Toast';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 

@@ -14,7 +14,6 @@ const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     { icon: FaHome, label: 'Home', href: '/' },
     { icon: FaStream, label: 'Social Feed', href: '/dashboard' },
     { icon: FaNewspaper, label: 'News Feed', href: '/news' },
-    { icon: FaUsers, label: 'Recommended', href: '/recommended' },
     { icon: FaUser, label: 'Profile', href: '/profile' },
     { icon: FaCog, label: 'Settings', href: '/settings' },
     { icon: FaInfoCircle, label: 'About', href: '/about' },

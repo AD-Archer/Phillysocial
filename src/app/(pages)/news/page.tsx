@@ -4,10 +4,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import NewsFeed from '@/components/NewsFeed';
 import { FaNewspaper, FaFilter, FaTags, FaCheckSquare, FaRegSquare, FaSync } from 'react-icons/fa';
 import Link from 'next/link';
+import { useAuth } from '@/lib/context/AuthContext';
 
 export default function NewsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { } = useAuth();
+  
   const [selectedCategory, setSelectedCategory] = useState<string | null>(
     searchParams.get('category') || null
   );
