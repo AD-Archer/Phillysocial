@@ -246,7 +246,7 @@ const PostList: React.FC<PostListProps> = ({ channelId }) => {
         </div>
       ) : (
         <div className="space-y-4">
-          {posts.map((post, index) => (
+          {posts.map((post) => (
             <PostCard 
               key={post.id}
               post={post}

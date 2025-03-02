@@ -5,7 +5,6 @@ import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc, getDoc } from 'fire
 import { db } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
 import { Post, Comment } from '@/types/Post';
-import Image from 'next/image';
 import UserAvatar from '@/components/UserAvatar';
 import UserProfileLink from '@/components/UserProfileLink';
 
@@ -355,6 +354,19 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
     photoURL: post.authorPhotoURL || '/default-avatar.png'
   });
 
+  // Add effect that depends on forceUpdate to trigger re-renders when comments are deleted
+  useEffect(() => {
+    // This effect will run whenever forceUpdate changes
+    // It helps ensure the component re-renders after comment deletions
+    if (forceUpdate) {
+      // Log that a re-render was triggered by forceUpdate
+      console.log('Component re-rendered due to comment deletion');
+      
+      // You could also perform additional actions here if needed
+      // For example, refreshing comment counts or updating UI elements
+    }
+  }, [forceUpdate]);
+
   // Fetch the latest author information from Firestore
   useEffect(() => {
     const fetchAuthorInfo = async () => {
@@ -585,8 +597,9 @@ const PostCard: React.FC<PostCardProps> = ({ post, channel, onPostDeleted, onPos
   const handleCommentDeleted = async (commentId: string) => {
     // Update the local state to reflect the deleted comment
     // This is already handled by the markCommentAsDeleted function
-    // We're just forcing a re-render here
+    // We're just forcing a re-render here by toggling the forceUpdate state
     setForceUpdate(prev => !prev);
+    console.log(`Comment ${commentId} has been marked as deleted`);
   };
 
   return (
