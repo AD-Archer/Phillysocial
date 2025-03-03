@@ -48,6 +48,14 @@ const InviteCodeBanner: React.FC<InviteCodeBannerProps> = ({ channel, onJoin }) 
         members: [...channel.members, user.uid]
       };
       
+      // Force a re-render of the component
+      setTimeout(() => {
+        // This will trigger a re-render of any components that depend on this state
+        window.dispatchEvent(new CustomEvent('channel-joined', { 
+          detail: { channelId: channel.id }
+        }));
+      }, 100);
+      
       onJoin(updatedChannel);
       showToast(`You've joined ${channel.name}!`, 'success');
       setIsVisible(false);

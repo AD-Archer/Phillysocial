@@ -177,8 +177,9 @@ const ProfilePage = () => {
         const channelsQuery = query(
           channelsRef,
           where('members', 'array-contains', user.uid),
+          where('deleted', '==', false),
           orderBy('name'),
-          limit(10)
+          limit(50)
         );
         
         const unsubscribeChannels = onSnapshot(channelsQuery, (channelsSnap) => {
@@ -199,7 +200,8 @@ const ProfilePage = () => {
               mutedUsers: data.mutedUsers || [],
               invitedUsers: data.invitedUsers || [],
               inviteCode: data.inviteCode,
-              imageUrl: data.imageUrl || null
+              imageUrl: data.imageUrl || null,
+              deleted: data.deleted || false
             });
           });
           
@@ -492,9 +494,9 @@ const ProfilePage = () => {
           
           {/* User Channels */}
           {activeTab === 'channels' && (
-            <div className="p-4">
+            <div className="p-4 overflow-y-auto max-h-[calc(100vh-200px)] md:max-h-none" style={{ WebkitOverflowScrolling: 'touch' }}>
               {userChannels.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-20 md:pb-0">
                   {userChannels.map((channel) => (
                     <div 
                       key={channel.id}

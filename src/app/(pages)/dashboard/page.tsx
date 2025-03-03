@@ -36,9 +36,47 @@ export default function Dashboard() {
     // Add event listener for window resize
     window.addEventListener('resize', checkIfMobile);
     
+    // Listen for channel-joined event
+    const handleChannelJoined = (event: CustomEvent) => {
+      const { channelId } = event.detail;
+      setSelectedChannelId(channelId);
+      
+      // On mobile, collapse the channel list and scroll to the posts section
+      if (window.innerWidth < 768) {
+        setIsChannelListVisible(false);
+        setTimeout(() => {
+          postsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+      }
+    };
+    
+    window.addEventListener('channel-joined', handleChannelJoined as EventListener);
+    
     // Cleanup
-    return () => window.removeEventListener('resize', checkIfMobile);
+    return () => {
+      window.removeEventListener('resize', checkIfMobile);
+      window.removeEventListener('channel-joined', handleChannelJoined as EventListener);
+    };
   }, [selectedChannelId]);
+
+  // Check URL for channel parameter on initial load
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const channelId = params.get('channel');
+      if (channelId) {
+        setSelectedChannelId(channelId);
+        
+        // On mobile, collapse the channel list and scroll to the posts section
+        if (window.innerWidth < 768) {
+          setIsChannelListVisible(false);
+          setTimeout(() => {
+            postsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
+        }
+      }
+    }
+  }, []);
 
   useEffect(() => {
     // Check if welcome message has been dismissed before
@@ -194,17 +232,19 @@ export default function Dashboard() {
         <div 
           ref={channelListRef}
           className={`transition-all duration-300 ease-in-out overflow-hidden ${
-            isChannelListVisible ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+            isChannelListVisible ? 'max-h-[80vh] opacity-100' : 'max-h-0 opacity-0'
           }`}
         >
           <div className="bg-white rounded-xl shadow-md overflow-hidden">
             <div className="p-4 border-b border-gray-100">
               <h2 className="text-lg font-semibold text-[#004C54]">Your Channels</h2>
             </div>
-            <ChannelList 
-              onSelectChannel={handleChannelSelect}
-              selectedChannelId={selectedChannelId}
-            />
+            <div className="overflow-y-auto max-h-[60vh]" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <ChannelList 
+                onSelectChannel={handleChannelSelect}
+                selectedChannelId={selectedChannelId}
+              />
+            </div>
           </div>
         </div>
       </div>
