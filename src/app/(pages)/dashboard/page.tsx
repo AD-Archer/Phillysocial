@@ -55,7 +55,7 @@ export default function Dashboard() {
       // Force a re-render of the component
       if (event.detail.channelId === selectedChannelId) {
         // This is a hack to force a re-render
-        setSelectedChannelId(prev => {
+        setSelectedChannelId(() => {
           // Set to null and then back to the original value to force a re-render
           setTimeout(() => setSelectedChannelId(event.detail.channelId), 10);
           return null;

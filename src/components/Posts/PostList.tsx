@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, orderBy, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
@@ -24,27 +24,8 @@ const PostList: React.FC<PostListProps> = ({ channelId }) => {
   const { user } = useAuth();
   const { showToast } = useToast();
 
-  // Listen for channel-joined event
-  useEffect(() => {
-    const handleChannelJoined = (event: CustomEvent) => {
-      if (event.detail.channelId === channelId && user) {
-        // Force refresh of user's ability to post
-        setUserCanPost(true);
-        
-        // Refresh channel data
-        fetchChannelData();
-      }
-    };
-
-    window.addEventListener('channel-joined', handleChannelJoined as EventListener);
-
-    return () => {
-      window.removeEventListener('channel-joined', handleChannelJoined as EventListener);
-    };
-  }, [channelId, user]);
-
-  // Function to fetch channel data
-  const fetchChannelData = async () => {
+  // Function to fetch channel data - defined before it's used in useEffect
+  const fetchChannelData = useCallback(async () => {
     if (!channelId || !user) return;
     
     try {
@@ -85,7 +66,26 @@ const PostList: React.FC<PostListProps> = ({ channelId }) => {
       setError('Failed to load channel information');
       setChannel(null);
     }
-  };
+  }, [channelId, user]);
+
+  // Listen for channel-joined event
+  useEffect(() => {
+    const handleChannelJoined = (event: CustomEvent) => {
+      if (event.detail.channelId === channelId && user) {
+        // Force refresh of user's ability to post
+        setUserCanPost(true);
+        
+        // Refresh channel data
+        fetchChannelData();
+      }
+    };
+
+    window.addEventListener('channel-joined', handleChannelJoined as EventListener);
+
+    return () => {
+      window.removeEventListener('channel-joined', handleChannelJoined as EventListener);
+    };
+  }, [channelId, user, fetchChannelData]);
 
   // Fetch channel data
   useEffect(() => {
@@ -137,7 +137,7 @@ const PostList: React.FC<PostListProps> = ({ channelId }) => {
     return () => {
       unsubscribeChannel();
     };
-  }, [channelId, user]);
+  }, [channelId, user, fetchChannelData]);
 
   // Fetch posts for the selected channel
   useEffect(() => {

@@ -169,6 +169,7 @@ interface ProcessedNewsItem {
   isPhillyNews: boolean;
 }
 
+// Make sure to export the GET function properly for Next.js App Router
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -208,8 +209,6 @@ export async function GET(request: Request) {
       // Retry logic
       const maxRetries = 2;
       let retries = 0;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let lastError: any = null;
       
       while (retries <= maxRetries) {
         try {
@@ -248,218 +247,117 @@ export async function GET(request: Request) {
             const feed = await parser.parseString(cleanText);
             console.log(`Successfully parsed feed from ${sourceName} with ${feed.items?.length || 0} items`);
             
-            // Store in cache
+            // Cache the successful result
             feedCache.set(cacheKey, {
               data: feed,
               timestamp: Date.now()
             });
             
+            clearTimeout(timeout);
             return feed;
-          } catch (parseError: unknown) {
-            console.warn(`Error parsing feed from ${sourceName} (${url}):`, parseError instanceof Error ? parseError.message : parseError);
-            lastError = parseError;
+          } catch (parseError) {
+            console.error(`Error parsing feed from ${sourceName}:`, parseError);
             retries++;
-            
-            // If we've reached max retries, return null
-            if (retries > maxRetries) {
-              return null;
-            }
-            
-            // Wait before retrying (exponential backoff)
-            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
             continue;
           }
-        } catch (error: unknown) {
-          lastError = error;
-          
-          if (error instanceof Error) {
-            if (error.name === 'AbortError') {
-              console.warn(`Timeout fetching ${sourceName} (${url})`);
-              return null; // Don't retry on timeout
-            } else if ('code' in error && error.code === 'ENOTFOUND') {
-              console.warn(`Domain not found for ${sourceName}: ${url}`);
-              return null; // Don't retry on domain not found
-            } else {
-              console.warn(`Error fetching ${sourceName} (${url}):`, error.message);
-            }
-          } else {
-            console.warn(`Unknown error fetching ${sourceName} (${url}):`, error);
-          }
-          
+        } catch (fetchError) {
+          console.error(`Error fetching feed from ${sourceName} (attempt ${retries}):`, fetchError);
           retries++;
           
-          // If we've reached max retries, return null
-          if (retries > maxRetries) {
-            return null;
+          if (retries <= maxRetries) {
+            // Wait before retrying (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
           }
-          
-          // Wait before retrying (exponential backoff)
-          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
         } finally {
           clearTimeout(timeout);
         }
       }
       
-      console.error(`Failed to fetch ${sourceName} after ${maxRetries} retries:`, lastError);
+      console.warn(`Failed to fetch ${sourceName} after ${maxRetries} retries`);
       return null;
     };
 
-    const feedPromises = filteredSources.map(async source => {
-      try {
-        const feed = await fetchWithTimeout(source.url, source.name);
-        if (!feed?.items) return [];
-        
-        return feed.items
-          .filter((item: CustomItem) => item.title && (item.link || item.guid)) // Filter out invalid items
-          .map((item: CustomItem) => {
-            try {
-              const link = item.link || item.guid || '';
-              return {
-                id: link,
-                title: item.title?.trim(),
-                link: link,
-                description: getCleanDescription(item),
-                pubDate: getValidPubDate(item),
-                source: source.name,
-                sourceIcon: source.icon,
-                category: source.category,
-                author: getAuthor(item),
-                imageUrl: extractImageUrl(item),
-                isPhillyNews: source.isPhillyNews
-              };
-            } catch (itemError) {
-              console.warn(`Error processing item from ${source.name}:`, 
-                itemError instanceof Error ? itemError.message : itemError);
-              return null;
-            }
-          })
-          .filter((item: ProcessedNewsItem | null) => {
-            if (!item) return false; // Filter out null items from errors
-            
-            // Filter out items older than a week
-            try {
-              const itemDate = new Date(item.pubDate);
-              const weekAgo = new Date();
-              weekAgo.setDate(weekAgo.getDate() - 7);
-              return itemDate > weekAgo;
-            } catch {
-              console.warn(`Error processing date for item from ${source.name}`);
-              return false;
-            }
-          });
-      } catch (error: unknown) {
-        console.warn(`Error processing feed from ${source.name}:`, 
-          error instanceof Error ? error.message : error);
-        return [];
+    // Fetch all feeds in parallel
+    const feedPromises = filteredSources.map(source => 
+      fetchWithTimeout(source.url, source.name)
+        .then(feed => ({ feed, source }))
+        .catch(error => {
+          console.error(`Error processing ${source.name}:`, error);
+          return { feed: null, source };
+        })
+    );
+    
+    const results = await Promise.all(feedPromises);
+    
+    // Process all items from all feeds
+    const allItems: ProcessedNewsItem[] = [];
+    
+    results.forEach(({ feed, source }) => {
+      if (!feed || !feed.items) {
+        console.warn(`No items found for ${source.name}`);
+        return;
       }
-    });
-
-    const allNewsItems = (await Promise.all(feedPromises))
-      .flat()
-      // Using 'any' for these parameters is necessary due to the complex and variable structure of news items
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((item: any) => item !== null) // Filter out any null items
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .sort((a: any, b: any) => {
-        // Handle null cases (shouldn't happen after filtering, but TypeScript needs this)
-        if (!a || !b) return 0;
-        return new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime();
+      
+      feed.items.forEach((item: CustomItem) => {
+        try {
+          if (!item.title || !item.link) {
+            console.warn(`Skipping item with missing title or link from ${source.name}`);
+            return;
+          }
+          
+          const imageUrl = extractImageUrl(item);
+          const description = getCleanDescription(item);
+          const author = getAuthor(item);
+          const pubDate = getValidPubDate(item);
+          
+          // Create a unique ID based on title and link
+          const id = Buffer.from(`${item.title}-${item.link}`).toString('base64');
+          
+          allItems.push({
+            id,
+            title: item.title,
+            link: item.link,
+            description,
+            pubDate,
+            source: source.name,
+            sourceIcon: source.icon,
+            category: source.category,
+            author,
+            imageUrl,
+            isPhillyNews: source.isPhillyNews
+          });
+        } catch (error) {
+          console.error(`Error processing item from ${source.name}:`, error);
+        }
       });
-
-    // Calculate pagination values
-    const totalItems = allNewsItems.length;
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    });
+    
+    // Sort all items by publication date (newest first)
+    allItems.sort((a, b) => new Date(b.pubDate).getTime() - new Date(a.pubDate).getTime());
+    
+    // Paginate the results
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
+    const paginatedItems = allItems.slice(startIndex, endIndex);
     
-    // Get items for current page
-    const paginatedItems = allNewsItems.slice(startIndex, endIndex);
-
-    console.log(`Total news items found: ${totalItems}, showing page ${currentPage} of ${totalPages}`);
-    
-    // Create response with cache headers
-    const response = (data: PaginatedNewsResponse) => {
-      return NextResponse.json(data, {
-        headers: {
-          'Cache-Control': 'public, max-age=300, s-maxage=600', // Cache for 5 minutes on client, 10 minutes on CDN
-          'Surrogate-Control': 'max-age=600' // For CDNs that support this header
-        }
-      });
-    };
-    
-    if (allNewsItems.length === 0) {
-      console.warn('No news items found for the specified criteria');
-      
-      // Return fallback data if no items found
-      const fallbackItems = [
-        {
-          id: 'fallback-1',
-          title: 'Welcome to Philly Social News',
-          link: 'https://phillysocial.com',
-          description: 'Our news feed is currently being updated. Please check back soon for the latest Philadelphia news.',
-          pubDate: new Date().toISOString(),
-          source: 'Philly Social',
-          category: 'general',
-          author: 'Philly Social Team',
-          imageUrl: 'https://images.unsplash.com/photo-1569761316261-9a8696fa2ca3?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1050&q=80',
-          isPhillyNews: true
-        },
-        {
-          id: 'fallback-2',
-          title: 'Explore Philadelphia\'s Top Attractions',
-          link: 'https://phillysocial.com/attractions',
-          description: 'Discover the best places to visit in Philadelphia, from historic landmarks to modern attractions.',
-          pubDate: new Date().toISOString(),
-          source: 'Philly Social',
-          category: 'lifestyle',
-          author: 'Philly Social Team',
-          imageUrl: 'https://images.unsplash.com/photo-1601751818941-571144562ff8?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1050&q=80',
-          isPhillyNews: true
-        },
-        {
-          id: 'fallback-3',
-          title: 'Philadelphia Events This Weekend',
-          link: 'https://phillysocial.com/events',
-          description: 'Find out what\'s happening in Philadelphia this weekend, from concerts to festivals.',
-          pubDate: new Date().toISOString(),
-          source: 'Philly Social',
-          category: 'events',
-          author: 'Philly Social Team',
-          imageUrl: 'https://images.unsplash.com/photo-1575916242639-ec79b6a206ff?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1050&q=80',
-          isPhillyNews: true
-        }
-      ];
-      
-      // Return paginated fallback response
-      return response({
-        items: fallbackItems,
-        pagination: {
-          currentPage: 1,
-          totalPages: 1,
-          totalItems: fallbackItems.length,
-          itemsPerPage: fallbackItems.length,
-          hasNextPage: false,
-          hasPreviousPage: false
-        }
-      });
-    }
-
-    // Return paginated response
-    return response({
+    // Prepare the response
+    const response: PaginatedNewsResponse = {
       items: paginatedItems,
       pagination: {
         currentPage,
-        totalPages,
-        totalItems,
+        totalPages: Math.ceil(allItems.length / itemsPerPage),
+        totalItems: allItems.length,
         itemsPerPage,
-        hasNextPage: currentPage < totalPages,
-        hasPreviousPage: currentPage > 1
+        hasNextPage: endIndex < allItems.length,
+        hasPreviousPage: startIndex > 0
       }
-    });
-  } catch (error: unknown) {
-    console.error('Error in news API:', error instanceof Error ? error.message : error);
+    };
+    
+    return NextResponse.json(response);
+  } catch (error) {
+    console.error('Error in news API:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch news feeds' },
+      { error: 'Failed to fetch news' },
       { status: 500 }
     );
   }
