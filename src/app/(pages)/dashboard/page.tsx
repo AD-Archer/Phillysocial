@@ -50,12 +50,27 @@ export default function Dashboard() {
       }
     };
     
+    // Listen for channel-joined-complete event
+    const handleChannelJoinedComplete = (event: CustomEvent) => {
+      // Force a re-render of the component
+      if (event.detail.channelId === selectedChannelId) {
+        // This is a hack to force a re-render
+        setSelectedChannelId(prev => {
+          // Set to null and then back to the original value to force a re-render
+          setTimeout(() => setSelectedChannelId(event.detail.channelId), 10);
+          return null;
+        });
+      }
+    };
+    
     window.addEventListener('channel-joined', handleChannelJoined as EventListener);
+    window.addEventListener('channel-joined-complete', handleChannelJoinedComplete as EventListener);
     
     // Cleanup
     return () => {
       window.removeEventListener('resize', checkIfMobile);
       window.removeEventListener('channel-joined', handleChannelJoined as EventListener);
+      window.removeEventListener('channel-joined-complete', handleChannelJoinedComplete as EventListener);
     };
   }, [selectedChannelId]);
 

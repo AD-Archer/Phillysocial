@@ -54,6 +54,13 @@ const InviteCodeBanner: React.FC<InviteCodeBannerProps> = ({ channel, onJoin }) 
         window.dispatchEvent(new CustomEvent('channel-joined', { 
           detail: { channelId: channel.id }
         }));
+        
+        // Dispatch a second event after a short delay to ensure all components have updated
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('channel-joined-complete', { 
+            detail: { channelId: channel.id }
+          }));
+        }, 300);
       }, 100);
       
       onJoin(updatedChannel);
