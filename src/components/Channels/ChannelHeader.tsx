@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FaLock, FaHashtag, FaKey, FaCopy, FaCog, FaVolumeMute, FaEdit, FaUserFriends, FaTrash, FaEllipsisH, FaExclamationTriangle } from 'react-icons/fa';
 import Image from 'next/image';
 import { Channel } from '@/types/Channel';
@@ -49,22 +49,41 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
   };
 
   const toggleDropdown = (e: React.MouseEvent) => {
-    e.stopPropagation();
+    e.preventDefault();  // Prevent default behavior
+    e.stopPropagation(); // Stop propagation to parent elements
     setShowDropdown(!showDropdown);
   };
 
   // Close dropdown when clicking outside
-  const handleClickOutside = () => {
-    setShowDropdown(false);
+  const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+    // Don't close if clicking on the dropdown itself or its children
+    const target = e.target as Node;
+    const dropdownContainer = document.getElementById('channel-dropdown-container');
+    const dropdownButton = document.getElementById('channel-dropdown-button');
+    
+    if (
+      dropdownContainer && 
+      !dropdownContainer.contains(target) && 
+      dropdownButton && 
+      !dropdownButton.contains(target)
+    ) {
+      setShowDropdown(false);
+    }
   };
 
   // Add event listener for clicks outside dropdown
-  useState(() => {
-    document.addEventListener('click', handleClickOutside);
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  });
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Handle both mouse clicks and touch events
+      document.addEventListener('click', handleClickOutside);
+      document.addEventListener('touchend', handleClickOutside);
+      
+      return () => {
+        document.removeEventListener('click', handleClickOutside);
+        document.removeEventListener('touchend', handleClickOutside);
+      };
+    }
+  }, []);  // Empty dependency array to run only on mount and unmount
 
   const copyInviteCode = () => {
     if (!channel?.inviteCode) return;
@@ -121,7 +140,7 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           {channel.imageUrl ? (
             <motion.div 
               whileHover={{ scale: 1.05 }}
-              className="relative w-12 h-12 mr-3 rounded-md overflow-hidden"
+              className="relative w-12 h-12 mr-3 rounded-md overflow-hidden flex-shrink-0"
             >
               <Image 
                 src={channel.imageUrl} 
@@ -129,35 +148,37 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
                 fill
                 sizes="48px"
                 className="object-cover"
+                priority={true}
+                loading="eager"
                 />
             </motion.div>
           ) : (
             <motion.div 
               whileHover={{ scale: 1.05 }}
-              className="w-12 h-12 mr-3 bg-gradient-to-br from-[#004C54] to-[#046A38]/80 rounded-md flex items-center justify-center text-white"
+              className="w-12 h-12 mr-3 bg-gradient-to-br from-[#004C54] to-[#046A38]/80 rounded-md flex items-center justify-center text-white flex-shrink-0"
             >
               {channel.isPublic ? <FaHashtag size={22} /> : <FaLock size={22} />}
             </motion.div>
           )}
           
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-              {channel.name}
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center flex-wrap">
+              <span className="truncate mr-2">{channel.name}</span>
               {!channel.isPublic && (
-                <FaLock className="ml-2 text-gray-500" size={14} />
+                <FaLock className="text-gray-500 flex-shrink-0" size={14} />
               )}
               {isUserMuted && (
                 <motion.div 
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  className="ml-2 flex items-center text-yellow-500" 
+                  className="ml-2 flex items-center text-yellow-500 flex-shrink-0" 
                   title="You are muted in this channel"
                 >
                   <FaVolumeMute size={14} />
                 </motion.div>
               )}
             </h2>
-            <p className="text-sm text-gray-600 truncate max-w-md">
+            <p className="text-sm text-gray-600 truncate">
               {channel.description || 'No description provided'}
             </p>
             <AnimatePresence>
@@ -252,11 +273,14 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
           {/* Mobile view: show dropdown menu */}
           <div className="md:hidden relative">
             <motion.button
+              id="channel-dropdown-button"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={toggleDropdown}
               className="p-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
               aria-label="Channel options"
+              aria-expanded={showDropdown}
+              aria-haspopup="true"
             >
               <FaEllipsisH size={16} />
             </motion.button>
@@ -264,12 +288,21 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
             <AnimatePresence>
               {showDropdown && (
                 <motion.div
+                  id="channel-dropdown-container"
                   initial={{ opacity: 0, scale: 0.95, y: 5 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: 5 }}
                   transition={{ duration: 0.1 }}
-                  className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 overflow-hidden border border-gray-200"
+                  className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg z-50 overflow-hidden border border-gray-200"
                   onClick={(e) => e.stopPropagation()}
+                  style={{ 
+                    maxHeight: '60vh', 
+                    overflowY: 'auto',
+                    WebkitOverflowScrolling: 'touch', // For smooth scrolling on iOS
+                    position: 'fixed',
+                    right: '16px',
+                    top: 'auto'
+                  }}
                 >
                   {onShowMembers && (
                     <button
@@ -278,9 +311,9 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
                         onShowMembers();
                         setShowDropdown(false);
                       }}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                      className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                     >
-                      <FaUserFriends className="mr-2" size={14} />
+                      <FaUserFriends className="mr-2" size={16} />
                       View Members
                     </button>
                   )}
@@ -293,9 +326,9 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
                           setShowEditModal(true);
                           setShowDropdown(false);
                         }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                        className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                       >
-                        <FaEdit className="mr-2" size={14} />
+                        <FaEdit className="mr-2" size={16} />
                         Edit Channel
                       </button>
                       
@@ -306,9 +339,9 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
                             setShowInviteCode(!showInviteCode);
                             setShowDropdown(false);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                         >
-                          <FaKey className="mr-2" size={14} />
+                          <FaKey className="mr-2" size={16} />
                           {showInviteCode ? "Hide Invite Code" : "Show Invite Code"}
                         </button>
                       )}
@@ -320,9 +353,9 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
                             onShowManagement();
                             setShowDropdown(false);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                          className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                         >
-                          <FaCog className="mr-2" size={14} />
+                          <FaCog className="mr-2" size={16} />
                           Channel Management
                         </button>
                       )}
@@ -334,9 +367,9 @@ const ChannelHeader: React.FC<ChannelHeaderProps> = ({
                             onDeleteChannel();
                             setShowDropdown(false);
                           }}
-                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
+                          className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center"
                         >
-                          <FaTrash className="mr-2" size={14} />
+                          <FaTrash className="mr-2" size={16} />
                           Delete Channel
                         </button>
                       )}
