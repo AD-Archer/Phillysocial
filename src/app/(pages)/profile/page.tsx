@@ -365,26 +365,58 @@ const ProfilePage = () => {
         {/* Profile Header */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
           <div className="h-32 bg-gradient-to-r from-[#004C54] to-[#046A38]"></div>
-          <div className="p-6 relative">
-            <div className="absolute -top-16 left-6 border-4 border-white rounded-full overflow-hidden">
+          <div className="p-4 sm:p-6 relative">
+            {/* Profile Avatar */}
+            <div className="absolute -top-16 left-4 sm:left-6 border-4 border-white rounded-full overflow-hidden">
               {userProfile?.photoURL ? (
-                <div className="relative w-32 h-32">
+                <div className="relative w-24 h-24 sm:w-32 sm:h-32">
                   <Image 
                     src={userProfile.photoURL} 
                     alt={userProfile.displayName} 
                     fill
-                    sizes="128px"
+                    sizes="(max-width: 640px) 96px, 128px"
                     className="object-cover"
                   />
                 </div>
               ) : (
-                <div className="w-32 h-32 bg-[#004C54] text-white flex items-center justify-center text-4xl">
+                <div className="w-24 h-24 sm:w-32 sm:h-32 bg-[#004C54] text-white flex items-center justify-center text-3xl sm:text-4xl">
                   {userProfile?.displayName.charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
             
-            <div className="ml-40">
+            {/* Profile Content - Mobile Layout */}
+            <div className="sm:hidden mt-12 pt-2">
+              <div className="flex flex-col">
+                <div>
+                  <h1 className="text-xl font-bold text-gray-800">{userProfile?.displayName}</h1>
+                  <div className="flex items-center text-gray-500 mt-1 text-sm">
+                    <FaEnvelope className="mr-2" />
+                    <span className="truncate">{userProfile?.email}</span>
+                  </div>
+                </div>
+                
+                <button 
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="mt-3 px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940] flex items-center justify-center"
+                >
+                  <FaEdit className="mr-2" />
+                  Edit Profile
+                </button>
+                
+                {userProfile?.bio && (
+                  <p className="mt-3 text-gray-700 text-sm">{userProfile.bio}</p>
+                )}
+                
+                <div className="mt-3 flex items-center text-gray-500 text-sm">
+                  <FaCalendarAlt className="mr-2" />
+                  <span>Joined {userProfile?.joinedAt ? new Date(userProfile.joinedAt).toLocaleDateString() : 'recently'}</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Profile Content - Desktop Layout */}
+            <div className="hidden sm:block ml-40">
               <div className="flex justify-between items-start">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-800">{userProfile?.displayName}</h1>
