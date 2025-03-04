@@ -111,13 +111,29 @@ const ChannelView: React.FC<ChannelViewProps> = ({ channelId }) => {
         members: arrayUnion(user.uid)
       });
       
-      // Update local state
+      // Update local state immediately
       const updatedChannel = {
         ...channel,
         members: [...channel.members, user.uid]
       };
       
       setChannel(updatedChannel);
+      
+      // Force a re-render of the component
+      setTimeout(() => {
+        // This will trigger a re-render of any components that depend on this state
+        window.dispatchEvent(new CustomEvent('channel-joined', { 
+          detail: { channelId: channel.id }
+        }));
+        
+        // Dispatch a second event after a short delay to ensure all components have updated
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('channel-joined-complete', { 
+            detail: { channelId: channel.id }
+          }));
+        }, 300);
+      }, 100);
+      
       showToast('You have joined the channel', 'success');
     } catch (error) {
       console.error('Error joining channel:', error);

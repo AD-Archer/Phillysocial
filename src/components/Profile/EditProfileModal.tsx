@@ -59,13 +59,16 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
   // Prevent scrolling when modal is open
   useEffect(() => {
     if (isOpen) {
+      // Store the original overflow value
+      const originalOverflow = window.getComputedStyle(document.body).overflow;
+      // Only set overflow to hidden
       document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
+      
+      // Restore original overflow on cleanup
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
   }, [isOpen]);
 
   // Reset form when modal opens
@@ -202,43 +205,43 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-[2px] flex items-center justify-center z-40 p-2 sm:p-4 overflow-y-auto">
       <AnimatePresence>
         <motion.div
           ref={modalRef}
-          className="bg-white rounded-lg shadow-xl w-full max-h-[90vh] flex flex-col md:max-w-lg"
+          className="bg-white rounded-lg shadow-xl w-full max-h-[95vh] sm:max-h-[90vh] flex flex-col md:max-w-lg relative z-50"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.9 }}
           transition={{ type: "spring", duration: 0.3 }}
         >
-          <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-gradient-to-r from-[#003940] to-[#046A38] text-white z-10 rounded-t-lg">
-            <h2 className="text-lg font-semibold">Edit Profile</h2>
+          <div className="flex justify-between items-center p-3 sm:p-4 border-b sticky top-0 bg-gradient-to-r from-[#003940] to-[#046A38] text-white z-10 rounded-t-lg">
+            <h2 className="text-base sm:text-lg font-semibold">Edit Profile</h2>
             <button 
               onClick={onClose} 
-              className="text-white hover:text-[#A5ACAF] transition-colors"
+              className="text-white hover:text-[#A5ACAF] transition-colors p-2"
               aria-label="Close modal"
             >
-              <FaTimes />
+              <FaTimes size={18} />
             </button>
           </div>
           
-          <div className="p-6 overflow-y-auto">
-            <form onSubmit={handleSubmit}>
+          <div className="p-4 sm:p-6 overflow-y-auto">
+            <form onSubmit={handleSubmit} className="flex flex-col">
               {/* Profile Photo Section */}
-              <div className="flex flex-col items-center mb-6">
-                <div className="relative mb-4">
-                  <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-4 border-[#004C54] relative">
+              <div className="flex flex-col items-center mb-4 sm:mb-6">
+                <div className="relative mb-3 sm:mb-4">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-4 border-[#004C54] relative">
                     {(imagePreview || photoURL) ? (
                       <Image 
                         src={imagePreview || photoURL} 
                         alt="Profile Preview" 
                         fill
-                        sizes="(max-width: 768px) 96px, 128px"
+                        sizes="(max-width: 640px) 80px, (max-width: 768px) 96px, 128px"
                         className="object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full bg-[#004C54] text-white flex items-center justify-center text-3xl md:text-4xl">
+                      <div className="w-full h-full bg-[#004C54] text-white flex items-center justify-center text-2xl sm:text-3xl md:text-4xl">
                         {displayName ? displayName.charAt(0).toUpperCase() : 'U'}
                       </div>
                     )}
@@ -249,7 +252,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   <button
                     type="button"
                     onClick={handleRemovePhoto}
-                    className="text-red-600 text-sm flex items-center hover:text-red-700 transition-colors mb-4"
+                    className="text-red-600 text-xs sm:text-sm flex items-center justify-center hover:text-red-700 transition-colors mb-3 sm:mb-4 py-1 px-2 border border-red-200 rounded-md"
                     disabled={isRemoving}
                   >
                     {isRemoving ? (
@@ -263,20 +266,20 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
               </div>
               
               {/* Image URL Input */}
-              <div className="mb-6">
+              <div className="mb-4 sm:mb-6">
                 <div className="flex items-center mb-1">
-                  <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="imageUrl" className="block text-xs sm:text-sm font-medium text-gray-700">
                     Image URL
                   </label>
                   <div className="relative ml-2">
                     <FaInfoCircle 
                       className="text-[#004C54] cursor-pointer" 
-                      size={16}
+                      size={14}
                       onMouseEnter={() => setShowInfoTooltip(true)}
                       onMouseLeave={() => setShowInfoTooltip(false)}
                     />
                     {showInfoTooltip && (
-                      <div className="absolute z-50 w-72 p-3 bg-gray-800 text-white text-xs rounded shadow-lg -translate-x-1/2 left-1/2 mt-2 after:content-[''] after:absolute after:left-1/2 after:-top-2 after:-translate-x-1/2 after:border-8 after:border-transparent after:border-b-gray-800">
+                      <div className="absolute z-50 w-60 sm:w-72 p-2 sm:p-3 bg-gray-800 text-white text-xs rounded shadow-lg -translate-x-1/2 left-1/2 mt-2 after:content-[''] after:absolute after:left-1/2 after:-top-2 after:-translate-x-1/2 after:border-8 after:border-transparent after:border-b-gray-800">
                         <p>Enter a direct link to an image on the web. The URL should end with an image extension like .jpg, .png, or .gif. Right-click on images online and select &quot;Copy image address&quot; to get a valid URL.</p>
                       </div>
                     )}
@@ -289,12 +292,12 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     value={imageUrl}
                     onChange={handleImageUrlChange}
                     placeholder="https://example.com/image.jpg"
-                    className="flex-grow p-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-[#004C54]"
+                    className="flex-grow p-2 text-sm border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-[#004C54]"
                   />
                   <button
                     type="button"
                     onClick={handleApplyImageUrl}
-                    className="bg-[#004C54] text-white px-3 rounded-r-md hover:bg-[#003940] transition-colors flex items-center"
+                    className="bg-[#004C54] text-white px-2 sm:px-3 py-2 rounded-r-md hover:bg-[#003940] transition-colors flex items-center justify-center text-xs sm:text-sm whitespace-nowrap"
                   >
                     <FaLink className="mr-1" /> Apply
                   </button>
@@ -303,8 +306,8 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
               </div>
               
               {/* Display Name */}
-              <div className="mb-4">
-                <label htmlFor="displayName" className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="mb-3 sm:mb-4">
+                <label htmlFor="displayName" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                   Display Name*
                 </label>
                 <input
@@ -312,29 +315,29 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   id="displayName"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#004C54]"
+                  className="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#004C54]"
                   required
                 />
               </div>
               
               {/* Bio */}
-              <div className="mb-4">
-                <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="mb-3 sm:mb-4">
+                <label htmlFor="bio" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                   Bio
                 </label>
                 <textarea
                   id="bio"
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  rows={4}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#004C54]"
+                  rows={3}
+                  className="w-full p-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#004C54]"
                   placeholder="Tell us about yourself..."
                 />
               </div>
               
               {/* Email (read-only) */}
-              <div className="mb-6">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="mb-4 sm:mb-6">
+                <label htmlFor="email" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                   Email
                 </label>
                 <input
@@ -342,17 +345,17 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   id="email"
                   value={user?.email || ''}
                   disabled
-                  className="w-full p-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+                  className="w-full p-2 text-sm border border-gray-300 rounded-md bg-gray-50 text-gray-500"
                 />
                 <p className="mt-1 text-xs text-gray-500">Email cannot be changed</p>
               </div>
               
               {/* Submit Button */}
-              <div className="flex justify-end">
+              <div className="flex justify-center sm:justify-end mt-2 space-x-3">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 border border-gray-300 rounded-md mr-2 hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors min-w-[80px]"
                   disabled={isLoading}
                 >
                   Cancel
@@ -360,7 +363,7 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="px-4 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940] flex items-center transition-colors"
+                  className="px-4 py-2 text-sm bg-[#004C54] text-white rounded-md hover:bg-[#003940] flex items-center justify-center transition-colors min-w-[120px]"
                 >
                   {isLoading ? (
                     <>

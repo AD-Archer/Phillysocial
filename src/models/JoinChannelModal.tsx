@@ -100,7 +100,7 @@ const JoinChannelModal: React.FC<JoinChannelModalProps> = ({ onClose, onChannelJ
         isPublic: channelData.isPublic,
         createdBy: channelData.createdBy,
         createdAt: channelData.createdAt ? channelData.createdAt.toDate() : new Date(),
-        members: channelData.members || [],
+        members: [...(channelData.members || []), user.uid],
         admins: channelData.admins || [],
         bannedUsers: channelData.bannedUsers || [],
         mutedUsers: channelData.mutedUsers || [],
@@ -109,6 +109,21 @@ const JoinChannelModal: React.FC<JoinChannelModalProps> = ({ onClose, onChannelJ
         imageUrl: channelData.imageUrl || null,
         deleted: channelData.deleted || false
       };
+      
+      // Force a re-render of the component
+      setTimeout(() => {
+        // This will trigger a re-render of any components that depend on this state
+        window.dispatchEvent(new CustomEvent('channel-joined', { 
+          detail: { channelId: channel.id }
+        }));
+        
+        // Dispatch a second event after a short delay to ensure all components have updated
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('channel-joined-complete', { 
+            detail: { channelId: channel.id }
+          }));
+        }, 300);
+      }, 100);
       
       showToast(`Successfully joined ${channel.name}!`, 'success');
       onChannelJoined(channel);
@@ -145,25 +160,24 @@ const JoinChannelModal: React.FC<JoinChannelModalProps> = ({ onClose, onChannelJ
     <AnimatePresence>
       <div className="fixed inset-0 backdrop-blur-md bg-black/30 flex items-center justify-center z-50 p-4 overflow-y-auto">
         <motion.div 
-          className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col"
+          className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] flex flex-col overflow-hidden"
           variants={modalVariants}
           initial="hidden"
           animate="visible"
           exit="exit"
         >
-          <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gradient-to-r from-[#003940] to-[#046A38] text-white rounded-t-lg sticky top-0 z-10">
-            <h2 className="text-lg font-semibold">Join Private Channel</h2>
-            <motion.button 
-              onClick={onClose} 
-              className="text-white hover:text-[#A5ACAF] p-1 rounded-full hover:bg-black/20 transition-colors"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
+          <div className="flex items-center justify-between p-4 border-b sticky top-0 bg-white z-10">
+            <h2 className="text-xl font-semibold text-gray-800">Join a Channel</h2>
+            <button 
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 transition-colors"
+              aria-label="Close"
             >
-              <FaTimes />
-            </motion.button>
+              <FaTimes size={20} />
+            </button>
           </div>
           
-          <form id="joinChannelForm" onSubmit={handleSubmit} className="p-4 overflow-y-auto flex-1">
+          <form id="joinChannelForm" onSubmit={handleSubmit} className="p-4 overflow-y-auto flex-1 -webkit-overflow-scrolling: touch">
             <div className="mb-4">
               <label htmlFor="inviteCode" className="flex items-center text-sm font-medium text-gray-700 mb-1">
                 <FaKey className="mr-2 text-[#004C54]" />

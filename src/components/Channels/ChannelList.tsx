@@ -206,62 +206,57 @@ const ChannelList: React.FC<ChannelListProps> = ({ onSelectChannel, selectedChan
   }, [selectedChannelId]);
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-[#004C54]">Channels</h2>
-          <div className="flex space-x-2">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowCreateModal(true)}
-              className="p-2 bg-[#004C54] text-white rounded-full hover:bg-[#003940] transition-colors"
-              title="Create Channel"
-              aria-label="Create Channel"
-            >
-              <FaPlus size={14} />
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowJoinModal(true)}
-              className="p-2 bg-[#046A38] text-white rounded-full hover:bg-[#035C2F] transition-colors"
-              title="Join Channel"
-              aria-label="Join Channel"
-            >
-              <FaKey size={14} />
-            </motion.button>
+    <div className="flex flex-col h-full">
+      {/* Search and Action Buttons */}
+      <div className="p-3 border-b border-gray-100 sticky top-0 bg-white z-10">
+        <div className="relative mb-3">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <FaSearch className="text-gray-400" />
           </div>
-        </div>
-        
-        <div className="relative">
           <input
             type="text"
             placeholder="Search channels..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full p-2 pl-8 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#004C54] text-sm"
+            className="pl-10 pr-4 py-2 w-full border rounded-md focus:ring-[#004C54] focus:border-[#004C54] transition-colors"
           />
-          <FaSearch className="absolute left-2.5 top-2.5 text-gray-400" size={14} />
+        </div>
+        
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex-1 flex items-center justify-center px-3 py-2 bg-[#004C54] text-white rounded-md hover:bg-[#003940] transition-colors text-sm"
+          >
+            <FaPlus className="mr-1" />
+            Create
+          </button>
+          <button
+            onClick={() => setShowJoinModal(true)}
+            className="flex-1 flex items-center justify-center px-3 py-2 border border-[#004C54] text-[#004C54] rounded-md hover:bg-[#e6f0f0] transition-colors text-sm"
+          >
+            <FaKey className="mr-1" />
+            Join
+          </button>
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto">
+      {/* Channel List */}
+      <div className="flex-1 overflow-y-auto -webkit-overflow-scrolling-touch">
         {isLoading ? (
-          <div className="flex justify-center items-center h-32">
+          <div className="flex justify-center items-center p-8">
             <FaSpinner className="animate-spin text-[#004C54]" size={24} />
           </div>
         ) : error ? (
-          <div className="p-4 text-center">
-            <FaExclamationTriangle className="mx-auto text-yellow-500 mb-2" size={24} />
-            <p className="text-sm text-gray-700">{error}</p>
+          <div className="p-4 text-center text-red-500">
+            <FaExclamationTriangle className="mx-auto mb-2" size={24} />
+            <p>{error}</p>
           </div>
         ) : sortedChannels.length === 0 ? (
-          <div className="p-4 text-center">
+          <div className="p-4 text-center text-gray-500">
             {searchTerm ? (
-              <p className="text-sm text-gray-500">No channels match your search</p>
+              <p>No channels found matching &quot;{searchTerm}&quot;</p>
             ) : (
-              <p className="text-sm text-gray-500">No channels available. Create or join a channel to get started.</p>
+              <p>No channels available. Create or join one to get started!</p>
             )}
           </div>
         ) : (

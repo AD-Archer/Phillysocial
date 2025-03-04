@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, orderBy, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebaseConfig';
 import { useAuth } from '@/lib/context/AuthContext';
@@ -24,6 +24,69 @@ const PostList: React.FC<PostListProps> = ({ channelId }) => {
   const { user } = useAuth();
   const { showToast } = useToast();
 
+  // Function to fetch channel data - defined before it's used in useEffect
+  const fetchChannelData = useCallback(async () => {
+    if (!channelId || !user) return;
+    
+    try {
+      const channelRef = doc(db, 'channels', channelId);
+      const channelSnap = await getDoc(channelRef);
+      
+      if (!channelSnap.exists()) {
+        setError('Channel not found');
+        setChannel(null);
+        return;
+      }
+      
+      const channelData = channelSnap.data();
+      const channelObj: Channel = {
+        id: channelSnap.id,
+        name: channelData.name,
+        description: channelData.description,
+        isPublic: channelData.isPublic,
+        createdBy: channelData.createdBy,
+        createdAt: channelData.createdAt ? channelData.createdAt.toDate() : new Date(),
+        members: channelData.members || [],
+        admins: channelData.admins || [],
+        bannedUsers: channelData.bannedUsers || [],
+        mutedUsers: channelData.mutedUsers || [],
+        invitedUsers: channelData.invitedUsers || [],
+        inviteCode: channelData.inviteCode,
+        imageUrl: channelData.imageUrl || null,
+      };
+      
+      setChannel(channelObj);
+      
+      // Check if user can post
+      const isMember = channelObj.members.includes(user.uid);
+      const isMuted = channelObj.mutedUsers?.includes(user.uid) || false;
+      setUserCanPost(isMember && !isMuted);
+    } catch (error) {
+      console.error('Error fetching channel:', error);
+      setError('Failed to load channel information');
+      setChannel(null);
+    }
+  }, [channelId, user]);
+
+  // Listen for channel-joined event
+  useEffect(() => {
+    const handleChannelJoined = (event: CustomEvent) => {
+      if (event.detail.channelId === channelId && user) {
+        // Force refresh of user's ability to post
+        setUserCanPost(true);
+        
+        // Refresh channel data
+        fetchChannelData();
+      }
+    };
+
+    window.addEventListener('channel-joined', handleChannelJoined as EventListener);
+
+    return () => {
+      window.removeEventListener('channel-joined', handleChannelJoined as EventListener);
+    };
+  }, [channelId, user, fetchChannelData]);
+
   // Fetch channel data
   useEffect(() => {
     if (!channelId) {
@@ -36,54 +99,45 @@ const PostList: React.FC<PostListProps> = ({ channelId }) => {
     setIsLoading(true);
     setError(null);
 
-    const fetchChannel = async () => {
-      try {
-        const channelRef = doc(db, 'channels', channelId);
-        const channelSnap = await getDoc(channelRef);
-        
-        if (!channelSnap.exists()) {
-          setError('Channel not found');
-          setChannel(null);
-          setIsLoading(false);
-          return;
-        }
-        
-        const channelData = channelSnap.data();
+    // Initial fetch
+    fetchChannelData();
+    
+    // Set up real-time listener for the channel
+    const channelRef = doc(db, 'channels', channelId);
+    const unsubscribeChannel = onSnapshot(channelRef, (doc) => {
+      if (doc.exists()) {
+        const data = doc.data();
         const channelObj: Channel = {
-          id: channelSnap.id,
-          name: channelData.name,
-          description: channelData.description,
-          isPublic: channelData.isPublic,
-          createdBy: channelData.createdBy,
-          createdAt: channelData.createdAt ? channelData.createdAt.toDate() : new Date(),
-          members: channelData.members || [],
-          admins: channelData.admins || [],
-          bannedUsers: channelData.bannedUsers || [],
-          mutedUsers: channelData.mutedUsers || [],
-          invitedUsers: channelData.invitedUsers || [],
-          inviteCode: channelData.inviteCode,
-          imageUrl: channelData.imageUrl || null,
+          id: doc.id,
+          name: data.name,
+          description: data.description,
+          isPublic: data.isPublic,
+          createdBy: data.createdBy,
+          createdAt: data.createdAt ? data.createdAt.toDate() : new Date(),
+          members: data.members || [],
+          admins: data.admins || [],
+          bannedUsers: data.bannedUsers || [],
+          mutedUsers: data.mutedUsers || [],
+          invitedUsers: data.invitedUsers || [],
+          inviteCode: data.inviteCode,
+          imageUrl: data.imageUrl || null,
         };
         
         setChannel(channelObj);
         
-        // Check if user can post
+        // Update user's ability to post
         if (user) {
           const isMember = channelObj.members.includes(user.uid);
           const isMuted = channelObj.mutedUsers?.includes(user.uid) || false;
           setUserCanPost(isMember && !isMuted);
-        } else {
-          setUserCanPost(false);
         }
-      } catch (error) {
-        console.error('Error fetching channel:', error);
-        setError('Failed to load channel information');
-        setChannel(null);
       }
+    });
+
+    return () => {
+      unsubscribeChannel();
     };
-    
-    fetchChannel();
-  }, [channelId, user]);
+  }, [channelId, user, fetchChannelData]);
 
   // Fetch posts for the selected channel
   useEffect(() => {
