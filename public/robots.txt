@@ -1,0 +1,12 @@
+# Robots.txt file for Philly Social
+# https://phillysocial.vercel.app/
+
+User-agent: *
+Allow: /
+
+# Disallow admin and API routes
+Disallow: /api/
+Disallow: /dashboard/admin/
+
+# Sitemap location
+Sitemap: https://phillysocial.vercel.app/sitemap.xml 

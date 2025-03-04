@@ -1,29 +1,19 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import { AuthProvider } from '@lib/context/AuthContext';
-import { ToastProvider } from '@/layouts/Toast';
-import ClientLayout from './ClientLayout';
-import { ProfileCompletionProvider } from '@/lib/context/ProfileCompletionContext';
-import UserMiniProfileProvider from '@/lib/context/UserMiniProfileContext';
+import type { Metadata } from 'next';
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-export const metadata: Metadata = {
-  title: "Philly Social - Connect with Philadelphia's Community",
+/**
+ * Default metadata for the Philly Social application
+ * This can be imported and extended in individual page metadata
+ */
+export const defaultMetadata: Metadata = {
+  title: {
+    default: "Philly Social - Connect with Philadelphia's Community",
+    template: "%s | Philly Social"
+  },
   description: "Philly Social is your hub for Philadelphia news, events, local businesses, and community connections. Stay updated with the latest happenings in the city of brotherly love.",
   keywords: "Philadelphia, Philly, social network, news, events, community, local business, Philadelphia news, Philly events",
   authors: [
     { name: "Antonio Archer" },
-    { name: "Mohamed Souare" },
+    { name: "Mohomed Souare" },
     { name: "Sianni Strickland" },
     { name: "Bryan Gunawan" }
   ],
@@ -69,26 +59,40 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://phillysocial.vercel.app"),
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#e6f0f0]`}
-      >
-        <AuthProvider>
-          <ProfileCompletionProvider>
-            <ToastProvider>
-              <UserMiniProfileProvider>
-                <ClientLayout>{children}</ClientLayout>
-              </UserMiniProfileProvider>
-            </ToastProvider>
-          </ProfileCompletionProvider>
-        </AuthProvider>
-      </body>
-    </html>
-  );
-}
+/**
+ * Generate metadata for a specific page
+ * @param title - The page title
+ * @param description - The page description (optional)
+ * @param path - The page path (optional)
+ * @returns Metadata object for the page
+ */
+export function generateMetadata(
+  title: string,
+  description?: string,
+  path?: string
+): Metadata {
+  const pageUrl = path 
+    ? `${defaultMetadata.metadataBase}${path}` 
+    : defaultMetadata.metadataBase?.toString();
+  
+  return {
+    ...defaultMetadata,
+    title,
+    description: description || defaultMetadata.description,
+    openGraph: {
+      ...defaultMetadata.openGraph,
+      title,
+      description: description || defaultMetadata.openGraph?.description,
+      url: pageUrl,
+    },
+    twitter: {
+      ...defaultMetadata.twitter,
+      title,
+      description: description || defaultMetadata.twitter?.description,
+    },
+    alternates: {
+      ...defaultMetadata.alternates,
+      canonical: pageUrl,
+    },
+  };
+} 
