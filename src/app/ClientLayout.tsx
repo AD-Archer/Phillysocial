@@ -7,7 +7,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   useEffect(() => {
     const linkIconSVG = document.createElement('link');
     linkIconSVG.rel = 'icon';
-    linkIconSVG.href = '/logo.svg';
+    linkIconSVG.href = '/Logo.png';
     document.head.appendChild(linkIconSVG);
 
     const linkIconPNG = document.createElement('link');
