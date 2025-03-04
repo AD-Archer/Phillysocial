@@ -1,6 +1,7 @@
 'use client'; // This component will be a client component 
 
 import { useEffect } from 'react';
+import JsonLd, { generateWebsiteData, generateOrganizationData } from '@/components/JsonLd';
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -16,5 +17,16 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     document.head.appendChild(linkIconPNG);
   }, []);
 
-  return <>{children}</>; // Render children
+  // Generate structured data for the website and organization
+  const websiteData = generateWebsiteData();
+  const organizationData = generateOrganizationData();
+
+  return (
+    <>
+      {/* Add structured data for better SEO */}
+      <JsonLd data={websiteData} />
+      <JsonLd data={organizationData} />
+      {children}
+    </>
+  ); 
 } 
