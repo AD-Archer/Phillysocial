@@ -1,0 +1,16 @@
+{
+  "name": "@firebasegen/default-connector",
+  "version": "1.0.0",
+  "private": false,
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "index.js",
+  "engines": {
+    "node": ">=18.0"
+  },
+  "peerDependencies": {
+    "@tanstack-query-firebase/react": "^1.0.5",
+    "@tanstack/react-query": "^5",
+    "firebase": "^11.3.0"
+  }
+}

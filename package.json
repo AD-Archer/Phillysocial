@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@firebasegen/default-connector": "file:dataconnect-generated/js/default-connector",
+    "@plausible-analytics/tracker": "^0.4.4",
     "date-fns": "^4.1.0",
     "firebase": "^11.4.0",
     "framer-motion": "^12.4.7",
