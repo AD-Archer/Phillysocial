@@ -1,33 +1,24 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  webpack: (config) => {
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@lib': '/src/lib',
-      '@components': '/src/components',
-      '@layouts': '/src/layouts',
-      '@pages': '/src/app/(pages)',
-    };
-    return config;
+  turbopack: {
+    resolveAlias: {
+      "@lib": "./src/lib",
+      "@components": "./src/components",
+      "@layouts": "./src/layouts",
+      "@pages": "./src/app/(pages)",
+    },
   },
   images: {
-    domains: [
-      'lh3.googleusercontent.com',  // For Google authentication profile pictures
-      'firebasestorage.googleapis.com',  // For Firebase Storage
-      '2ad5tl9u0f.ufs.sh',  // Added this domain for founder images
-      'media.nbcphiladelphia.com'
-    ],
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: '**',
+        protocol: "https",
+        hostname: "**",
       },
       {
-        protocol: 'http',
-        hostname: '**',
-      }
+        protocol: "http",
+        hostname: "**",
+      },
     ],
   },
 };

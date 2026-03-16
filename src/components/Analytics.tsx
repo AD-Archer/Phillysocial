@@ -7,7 +7,7 @@ export default function Analytics() {
     if (typeof window === "undefined") return;
     import("@plausible-analytics/tracker").then(({ init }) => {
       init({
-        domain: "phillysocial.vercel.app",
+        domain: "phillysocial.adarcher.app",
         endpoint: "https://plausible.adarcher.app/api/event",
         autoCapturePageviews: true,
         outboundLinks: true,

@@ -45,7 +45,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://phillysocial.vercel.app",
+    url: "https://phillysocial.adarcher.app",
     title: "Philly Social - Connect with Philadelphia's Community",
     description:
       "Philly Social is your hub for Philadelphia news, events, local businesses, and community connections. Stay updated with the latest happenings in the city of brotherly love.",
@@ -69,9 +69,9 @@ export const metadata: Metadata = {
     site: "@phillysocial",
   },
   alternates: {
-    canonical: "https://phillysocial.vercel.app",
+    canonical: "https://phillysocial.adarcher.app",
   },
-  metadataBase: new URL("https://phillysocial.vercel.app"),
+  metadataBase: new URL("https://phillysocial.adarcher.app"),
 };
 
 export default function RootLayout({

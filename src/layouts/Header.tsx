@@ -1,13 +1,21 @@
-'use client';
-import React, { useState, useRef, useEffect } from 'react';
-import { FaBars, FaSignInAlt, FaUserPlus, FaUser, FaSignOutAlt, FaUserCircle, FaTimes } from 'react-icons/fa';
-import Image from 'next/image';
-import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '@/lib/context/AuthContext';
-import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebaseConfig';
-import { useRouter } from 'next/navigation';
+"use client";
+import React, { useState, useRef, useEffect } from "react";
+import {
+  FaBars,
+  FaSignInAlt,
+  FaUserPlus,
+  FaUser,
+  FaSignOutAlt,
+  FaUserCircle,
+  FaTimes,
+} from "react-icons/fa";
+import Image from "next/image";
+import Link from "next/link";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
+import { useAuth } from "@/lib/context/AuthContext";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebaseConfig";
+import { useRouter } from "next/navigation";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -15,7 +23,11 @@ interface HeaderProps {
   isSidebarOpen?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick, isSidebarOpen = false }) => {
+const Header: React.FC<HeaderProps> = ({
+  onMenuClick,
+  onProfileClick,
+  isSidebarOpen = false,
+}) => {
   const { user } = useAuth();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -24,11 +36,14 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick, isSidebarO
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setIsProfileOpen(false);
       }
     }
-    
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -44,10 +59,10 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick, isSidebarO
     try {
       await signOut(auth);
       setIsProfileOpen(false);
-      router.push('/');
-      console.log('User signed out successfully');
+      router.push("/");
+      console.log("User signed out successfully");
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error("Error signing out:", error);
     }
   };
 
@@ -55,31 +70,31 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick, isSidebarO
   const getUserDisplayName = () => {
     if (user?.displayName) return user.displayName;
     if (user?.email) {
-      const emailParts = user.email.split('@');
+      const emailParts = user.email.split("@");
       return emailParts[0];
     }
-    return 'User';
+    return "User";
   };
 
   // Animation variants
-  const dropdownVariants = {
-    hidden: { 
-      opacity: 0, 
+  const dropdownVariants: Variants = {
+    hidden: {
+      opacity: 0,
       y: -10,
       scale: 0.95,
-      transition: { duration: 0.2 }
+      transition: { duration: 0.2 },
     },
-    visible: { 
-      opacity: 1, 
+    visible: {
+      opacity: 1,
       y: 0,
       scale: 1,
-      transition: { 
+      transition: {
         duration: 0.3,
-        type: "spring",
+        type: "spring" as const,
         stiffness: 300,
-        damping: 20
-      }
-    }
+        damping: 20,
+      },
+    },
   };
 
   return (
@@ -108,30 +123,30 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick, isSidebarO
             <h1 className="text-2xl eagles-font">Philly Social</h1>
           </Link>
         </div>
-        
+
         <div className="flex items-center space-x-4">
           {!user && (
             <div className="hidden md:flex space-x-3">
-              <motion.div 
-                whileHover={{ scale: 1.05 }} 
+              <motion.div
+                whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="relative group"
               >
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-[#A5ACAF] to-[#046A38] rounded-lg blur opacity-0 group-hover:opacity-100 transition duration-300"></div>
-                <Link 
-                  href="/login" 
+                <Link
+                  href="/login"
                   className="relative flex items-center space-x-2 bg-[#003940] border border-[#A5ACAF]/50 text-[#A5ACAF] px-4 py-2 rounded-lg hover:text-white transition-colors duration-300"
                 >
                   <FaSignInAlt />
                   <span>Sign In</span>
                 </Link>
               </motion.div>
-              <motion.div 
-                whileHover={{ scale: 1.05 }} 
+              <motion.div
+                whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Link 
-                  href="/login?mode=signup" 
+                <Link
+                  href="/login?mode=signup"
                   className="flex items-center space-x-2 bg-[#A5ACAF] text-[#003038] px-4 py-2 rounded-lg hover:bg-white transition-colors duration-300 shadow-lg"
                 >
                   <FaUserPlus />
@@ -140,7 +155,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick, isSidebarO
               </motion.div>
             </div>
           )}
-          
+
           {user && (
             <div className="flex items-center space-x-4">
               {/* User Profile */}
@@ -170,10 +185,10 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick, isSidebarO
                     {getUserDisplayName()}
                   </span>
                 </motion.button>
-                
+
                 <AnimatePresence>
                   {isProfileOpen && (
-                    <motion.div 
+                    <motion.div
                       className="absolute right-0 mt-2 w-64 rounded-xl shadow-2xl bg-white z-50 overflow-hidden"
                       variants={dropdownVariants}
                       initial="hidden"
@@ -195,23 +210,33 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, onProfileClick, isSidebarO
                                 />
                               </div>
                             ) : (
-                              <FaUserCircle size={36} className="text-[#003940]" />
+                              <FaUserCircle
+                                size={36}
+                                className="text-[#003940]"
+                              />
                             )}
                           </div>
                           <div>
-                            <p className="text-white font-medium">{getUserDisplayName()}</p>
-                            <p className="text-[#A5ACAF] text-sm truncate max-w-[180px]">{user?.email}</p>
+                            <p className="text-white font-medium">
+                              {getUserDisplayName()}
+                            </p>
+                            <p className="text-[#A5ACAF] text-sm truncate max-w-[180px]">
+                              {user?.email}
+                            </p>
                           </div>
                         </div>
                       </div>
-                      
+
                       {/* Menu items */}
                       <div className="py-2">
-                        <Link href="/profile" className="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors">
+                        <Link
+                          href="/profile"
+                          className="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
                           <FaUser className="text-[#004C54]" />
                           <span>My Profile</span>
                         </Link>
-                       
+
                         <div className="border-t border-gray-200 my-1"></div>
                         <button
                           onClick={handleSignOut}

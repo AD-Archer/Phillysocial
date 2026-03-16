@@ -1,37 +1,44 @@
-'use client';
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { signIn, signUp, signInWithGoogle } from '@lib/auth';
-import { useRouter, useSearchParams } from 'next/navigation';
-import MainLayout from '@/layouts/MainLayout';
-import { motion, AnimatePresence } from 'framer-motion';
-import { FaUser, FaEnvelope, FaLock, FaGoogle, FaArrowRight, FaArrowLeft } from 'react-icons/fa';
-import { useAuth } from '@/lib/context/AuthContext';
+"use client";
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { signIn, signUp, signInWithGoogle } from "@lib/auth";
+import { useRouter, useSearchParams } from "next/navigation";
+import MainLayout from "@/layouts/MainLayout";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
+import {
+  FaUser,
+  FaEnvelope,
+  FaLock,
+  FaGoogle,
+  FaArrowRight,
+  FaArrowLeft,
+} from "react-icons/fa";
+import { useAuth } from "@/lib/context/AuthContext";
 
 export default function AuthPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
   // Redirect if user is already signed in
   useEffect(() => {
     if (!authLoading && user) {
-      router.push('/dashboard');
+      router.push("/dashboard");
     }
   }, [user, authLoading, router]);
 
   // Check for mode parameter in URL
   useEffect(() => {
-    const mode = searchParams.get('mode');
-    if (mode === 'signup') {
+    const mode = searchParams.get("mode");
+    if (mode === "signup") {
       setIsLogin(false);
     }
   }, [searchParams]);
@@ -39,7 +46,7 @@ export default function AuthPage() {
   // Add Eagles font and breathing gradient
   useEffect(() => {
     // Add the Eagles font to the document
-    const style = document.createElement('style');
+    const style = document.createElement("style");
     style.textContent = `
       @font-face {
         font-family: 'NFLEagles';
@@ -70,7 +77,7 @@ export default function AuthPage() {
       }
     `;
     document.head.appendChild(style);
-    
+
     return () => {
       document.head.removeChild(style);
     };
@@ -78,27 +85,27 @@ export default function AuthPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
       if (isLogin) {
         if (!email || !password) {
-          throw new Error('Both fields are required.');
+          throw new Error("Both fields are required.");
         }
         await signIn(email, password);
-        router.push('/dashboard');
+        router.push("/dashboard");
       } else {
         if (!name || !email || !password) {
-          throw new Error('All fields are required.');
+          throw new Error("All fields are required.");
         }
         // Show success animation before redirecting
         setSuccess(true);
-        
+
         // Simulate a delay for the success animation
         setTimeout(async () => {
           await signUp(email, password);
-          router.push('/dashboard');
+          router.push("/dashboard");
         }, 1500);
       }
     } catch (err: unknown) {
@@ -106,24 +113,26 @@ export default function AuthPage() {
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError(`Failed to ${isLogin ? 'sign in' : 'sign up'}. Please try again.`);
+        setError(
+          `Failed to ${isLogin ? "sign in" : "sign up"}. Please try again.`,
+        );
       }
       setLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
       await signInWithGoogle();
-      router.push('/dashboard');
+      router.push("/dashboard");
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('Failed to sign in with Google.');
+        setError("Failed to sign in with Google.");
       }
     } finally {
       setLoading(false);
@@ -132,56 +141,56 @@ export default function AuthPage() {
 
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
-    setError('');
-    
+    setError("");
+
     // Update URL without refreshing the page
-    const newUrl = isLogin 
-      ? `${window.location.pathname}?mode=signup` 
+    const newUrl = isLogin
+      ? `${window.location.pathname}?mode=signup`
       : window.location.pathname;
-    
-    window.history.pushState({}, '', newUrl);
+
+    window.history.pushState({}, "", newUrl);
   };
 
   // Animation variants
   const fadeInUp = {
     hidden: { opacity: 0, y: 20 },
-    visible: { 
-      opacity: 1, 
+    visible: {
+      opacity: 1,
       y: 0,
       transition: {
-        duration: 0.6
-      }
+        duration: 0.6,
+      },
     },
     exit: {
       opacity: 0,
       y: -20,
       transition: {
-        duration: 0.3
-      }
-    }
+        duration: 0.3,
+      },
+    },
   };
 
-  const slideVariants = {
+  const slideVariants: Variants = {
     enter: (direction: number) => ({
       x: direction > 0 ? 200 : -200,
-      opacity: 0
+      opacity: 0,
     }),
     center: {
       x: 0,
       opacity: 1,
       transition: {
-        x: { type: "spring", stiffness: 300, damping: 30 },
-        opacity: { duration: 0.2 }
-      }
+        x: { type: "spring" as const, stiffness: 300, damping: 30 },
+        opacity: { duration: 0.2 },
+      },
     },
     exit: (direction: number) => ({
       x: direction < 0 ? 200 : -200,
       opacity: 0,
       transition: {
-        x: { type: "spring", stiffness: 300, damping: 30 },
-        opacity: { duration: 0.2 }
-      }
-    })
+        x: { type: "spring" as const, stiffness: 300, damping: 30 },
+        opacity: { duration: 0.2 },
+      },
+    }),
   };
 
   return (
@@ -197,14 +206,14 @@ export default function AuthPage() {
             <p>You are already signed in. Redirecting to dashboard...</p>
           </div>
         ) : (
-          <motion.div 
+          <motion.div
             initial="hidden"
             animate="visible"
             variants={fadeInUp}
             className="max-w-md w-full"
           >
             <div className="text-center mb-8">
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5 }}
@@ -221,7 +230,7 @@ export default function AuthPage() {
                 </div>
               </motion.div>
               <AnimatePresence mode="wait">
-                <motion.h1 
+                <motion.h1
                   key={isLogin ? "login-title" : "signup-title"}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -230,14 +239,18 @@ export default function AuthPage() {
                   className="text-4xl eagles-font tracking-tight text-white mb-2"
                 >
                   {isLogin ? (
-                    <>Welcome <span className="text-[#A5ACAF]">Back</span></>
+                    <>
+                      Welcome <span className="text-[#A5ACAF]">Back</span>
+                    </>
                   ) : (
-                    <>Join <span className="text-[#A5ACAF]">Philly Social</span></>
+                    <>
+                      Join <span className="text-[#A5ACAF]">Philly Social</span>
+                    </>
                   )}
                 </motion.h1>
               </AnimatePresence>
               <AnimatePresence mode="wait">
-                <motion.p 
+                <motion.p
                   key={isLogin ? "login-subtitle" : "signup-subtitle"}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -245,33 +258,47 @@ export default function AuthPage() {
                   transition={{ duration: 0.3 }}
                   className="text-[#A5ACAF] text-lg"
                 >
-                  {isLogin 
-                    ? "Sign in to connect with your community" 
-                    : "Connect with your community and make a difference"
-                  }
+                  {isLogin
+                    ? "Sign in to connect with your community"
+                    : "Connect with your community and make a difference"}
                 </motion.p>
               </AnimatePresence>
             </div>
 
             <div className="bg-black/30 backdrop-blur-md rounded-2xl p-8 shadow-xl">
               {success ? (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="text-center py-8"
                 >
-                  <motion.div 
+                  <motion.div
                     initial={{ scale: 0.5 }}
                     animate={{ scale: 1 }}
                     transition={{ duration: 0.5 }}
                     className="w-20 h-20 bg-green-500 rounded-full mx-auto flex items-center justify-center mb-6"
                   >
-                    <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                    <svg
+                      className="w-10 h-10 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="3"
+                        d="M5 13l4 4L19 7"
+                      ></path>
                     </svg>
                   </motion.div>
-                  <h2 className="text-2xl font-bold text-white mb-2">Account Created!</h2>
-                  <p className="text-[#A5ACAF]">Redirecting you to your dashboard...</p>
+                  <h2 className="text-2xl font-bold text-white mb-2">
+                    Account Created!
+                  </h2>
+                  <p className="text-[#A5ACAF]">
+                    Redirecting you to your dashboard...
+                  </p>
                 </motion.div>
               ) : (
                 <AnimatePresence mode="wait" custom={isLogin ? -1 : 1}>
@@ -285,7 +312,7 @@ export default function AuthPage() {
                     onSubmit={handleSubmit}
                   >
                     {error && (
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="bg-red-500/20 border border-red-500/50 text-white p-4 rounded-lg mb-6"
@@ -296,7 +323,10 @@ export default function AuthPage() {
 
                     {!isLogin && (
                       <div className="mb-5">
-                        <label className="block text-[#A5ACAF] mb-2 text-sm font-medium" htmlFor="name">
+                        <label
+                          className="block text-[#A5ACAF] mb-2 text-sm font-medium"
+                          htmlFor="name"
+                        >
                           Full Name
                         </label>
                         <div className="relative">
@@ -318,7 +348,10 @@ export default function AuthPage() {
                     )}
 
                     <div className="mb-5">
-                      <label className="block text-[#A5ACAF] mb-2 text-sm font-medium" htmlFor="email">
+                      <label
+                        className="block text-[#A5ACAF] mb-2 text-sm font-medium"
+                        htmlFor="email"
+                      >
                         Email Address
                       </label>
                       <div className="relative">
@@ -339,7 +372,10 @@ export default function AuthPage() {
                     </div>
 
                     <div className="mb-6">
-                      <label className="block text-[#A5ACAF] mb-2 text-sm font-medium" htmlFor="password">
+                      <label
+                        className="block text-[#A5ACAF] mb-2 text-sm font-medium"
+                        htmlFor="password"
+                      >
                         Password
                       </label>
                       <div className="relative">
@@ -353,7 +389,11 @@ export default function AuthPage() {
                           onChange={(e) => setPassword(e.target.value)}
                           required
                           className="bg-black/20 text-white pl-10 block w-full border border-[#A5ACAF]/30 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-[#A5ACAF] focus:border-transparent placeholder-[#A5ACAF]/50"
-                          placeholder={isLogin ? "Enter your password" : "Create a password"}
+                          placeholder={
+                            isLogin
+                              ? "Enter your password"
+                              : "Create a password"
+                          }
                           disabled={loading}
                         />
                       </div>
@@ -366,10 +406,13 @@ export default function AuthPage() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
-                      {loading 
-                        ? (isLogin ? 'Signing in...' : 'Creating Account...') 
-                        : (isLogin ? 'Sign In' : 'Create Account')
-                      }
+                      {loading
+                        ? isLogin
+                          ? "Signing in..."
+                          : "Creating Account..."
+                        : isLogin
+                          ? "Sign In"
+                          : "Create Account"}
                     </motion.button>
 
                     <div className="mt-6 relative">
@@ -377,7 +420,9 @@ export default function AuthPage() {
                         <div className="w-full border-t border-[#A5ACAF]/30"></div>
                       </div>
                       <div className="relative flex justify-center text-sm">
-                        <span className="px-2 bg-[#004C54] text-[#A5ACAF]">Or continue with</span>
+                        <span className="px-2 bg-[#004C54] text-[#A5ACAF]">
+                          Or continue with
+                        </span>
                       </div>
                     </div>
 
@@ -390,10 +435,10 @@ export default function AuthPage() {
                       whileTap={{ scale: 0.98 }}
                     >
                       <FaGoogle className="text-white" />
-                      Sign {isLogin ? 'in' : 'up'} with Google
+                      Sign {isLogin ? "in" : "up"} with Google
                     </motion.button>
 
-                    <motion.div 
+                    <motion.div
                       className="mt-6 text-center"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -406,13 +451,15 @@ export default function AuthPage() {
                       >
                         {isLogin ? (
                           <>
-                            Don&apos;t have an account? <span className="ml-1 underline">Sign Up</span>
+                            Don&apos;t have an account?{" "}
+                            <span className="ml-1 underline">Sign Up</span>
                             <FaArrowRight className="ml-2" />
                           </>
                         ) : (
                           <>
                             <FaArrowLeft className="mr-2" />
-                            Already have an account? <span className="ml-1 underline">Sign In</span>
+                            Already have an account?{" "}
+                            <span className="ml-1 underline">Sign In</span>
                           </>
                         )}
                       </button>
@@ -421,14 +468,14 @@ export default function AuthPage() {
                 </AnimatePresence>
               )}
             </div>
-            
+
             <div className="mt-8 text-center">
               <p className="text-[#A5ACAF] text-sm">
-                By continuing, you agree to our{' '}
+                By continuing, you agree to our{" "}
                 <Link href="#" className="text-white hover:text-[#A5ACAF]">
                   Terms of Service
-                </Link>{' '}
-                and{' '}
+                </Link>{" "}
+                and{" "}
                 <Link href="#" className="text-white hover:text-[#A5ACAF]">
                   Privacy Policy
                 </Link>

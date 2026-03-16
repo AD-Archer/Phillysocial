@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata } from "next";
 
 /**
  * Default metadata for the Philly Social application
@@ -7,15 +7,17 @@ import type { Metadata } from 'next';
 export const defaultMetadata: Metadata = {
   title: {
     default: "Philly Social - Connect with Philadelphia's Community",
-    template: "%s | Philly Social"
+    template: "%s | Philly Social",
   },
-  description: "Philly Social is your hub for Philadelphia news, events, local businesses, and community connections. Stay updated with the latest happenings in the city of brotherly love.",
-  keywords: "Philadelphia, Philly, social network, news, events, community, local business, Philadelphia news, Philly events",
+  description:
+    "Philly Social is your hub for Philadelphia news, events, local businesses, and community connections. Stay updated with the latest happenings in the city of brotherly love.",
+  keywords:
+    "Philadelphia, Philly, social network, news, events, community, local business, Philadelphia news, Philly events",
   authors: [
     { name: "Antonio Archer" },
     { name: "Mohomed Souare" },
     { name: "Sianni Strickland" },
-    { name: "Bryan Gunawan" }
+    { name: "Bryan Gunawan" },
   ],
   creator: "Antonio Archer, Mohomed Souare, Sianni Strickland, Bryan Gunawan",
   publisher: "Philly Social",
@@ -25,16 +27,17 @@ export const defaultMetadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
     },
   },
   openGraph: {
-    type: 'website',
-    locale: 'en_US',
-    url: "https://phillysocial.vercel.app",
+    type: "website",
+    locale: "en_US",
+    url: "https://phillysocial.adarcher.app",
     title: "Philly Social - Connect with Philadelphia's Community",
-    description: "Philly Social is your hub for Philadelphia news, events, local businesses, and community connections. Stay updated with the latest happenings in the city of brotherly love.",
+    description:
+      "Philly Social is your hub for Philadelphia news, events, local businesses, and community connections. Stay updated with the latest happenings in the city of brotherly love.",
     siteName: "Philly Social",
     images: [
       {
@@ -46,17 +49,18 @@ export const defaultMetadata: Metadata = {
     ],
   },
   twitter: {
-    card: 'summary_large_image',
+    card: "summary_large_image",
     title: "Philly Social - Connect with Philadelphia's Community",
-    description: "Philly Social is your hub for Philadelphia news, events, local businesses, and community connections.",
-    images: ['/Logo.png'],
-    creator: '@phillysocial',
-    site: '@phillysocial',
+    description:
+      "Philly Social is your hub for Philadelphia news, events, local businesses, and community connections.",
+    images: ["/Logo.png"],
+    creator: "@phillysocial",
+    site: "@phillysocial",
   },
   alternates: {
-    canonical: 'https://phillysocial.vercel.app',
+    canonical: "https://phillysocial.adarcher.app",
   },
-  metadataBase: new URL("https://phillysocial.vercel.app"),
+  metadataBase: new URL("https://phillysocial.adarcher.app"),
 };
 
 /**
@@ -69,12 +73,12 @@ export const defaultMetadata: Metadata = {
 export function generateMetadata(
   title: string,
   description?: string,
-  path?: string
+  path?: string,
 ): Metadata {
-  const pageUrl = path 
-    ? `${defaultMetadata.metadataBase}${path}` 
+  const pageUrl = path
+    ? `${defaultMetadata.metadataBase}${path}`
     : defaultMetadata.metadataBase?.toString();
-  
+
   return {
     ...defaultMetadata,
     title,
@@ -95,4 +99,4 @@ export function generateMetadata(
       canonical: pageUrl,
     },
   };
-} 
+}
